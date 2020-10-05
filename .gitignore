@@ -17,6 +17,7 @@
 .idea
 .prof
 .pytest_cache
+.python-version
 __pycache__
 build/
 dist/

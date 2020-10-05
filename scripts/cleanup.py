@@ -21,30 +21,22 @@ A utility script to remove cython and pytest artifact files from source code dir
 import os
 import shutil
 
-extensions_to_clean = (".c", ".so", ".o", ".pyd", ".pyc", ".dll", ".html")
-
-
-def remove_dir_if_exists(dir_name: str):
-    """
-    Remove the directory with the given name if it exists.
-
-    Parameters
-    ----------
-    dir_name : str
-        The directory name.
-
-    """
-    if os.path.exists(dir_name):
-        shutil.rmtree(dir_name)
+EXTENSIONS_TO_CLEAN = (".c", ".so", ".o", ".pyd", ".pyc", ".dll", ".html")
 
 
 if __name__ == "__main__":
-    remove_dir_if_exists("../.pytest_cache")
-    remove_dir_if_exists("../__pycache__")
-    remove_dir_if_exists("../build")
-    for directory in ["../nautilus_trader"]:
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    print(f"{root_dir=}")
+
+    for target in [".pytest_cache", "__pycache__", "build", "dist"]:
+        shutil.rmtree(os.path.join(root_dir, target), ignore_errors=True)
+
+    removed_count = 0
+    for directory in [os.path.join(root_dir, "nautilus_trader")]:
         for root, _dirs, files in os.walk(directory):
             for name in files:
                 path = os.path.join(root, name)
-                if os.path.isfile(path) and path.endswith(extensions_to_clean):
+                if os.path.isfile(path) and path.endswith(EXTENSIONS_TO_CLEAN):
                     os.remove(path)
+                    removed_count += 1
+    print(f"Removed {removed_count} discrete files by extension.")
