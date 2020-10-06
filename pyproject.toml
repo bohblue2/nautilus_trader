@@ -54,7 +54,7 @@ pytest-xdist = {extras = ["psutil"], version = "^2.1.0"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--dist=loadscope --numprocesses=auto -ra"
+addopts = "--dist=loadscope --numprocesses=auto -ra --cov=nautilus_trader --cov-report=xml"
 
 [tool.isort]
 src_paths = ["examples", "nautilus_trader", "scripts", "tests", "tools"]

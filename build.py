@@ -21,8 +21,8 @@ Options.docstrings = True  # Include docstrings in modules
 Options.embed_pos_in_docstring = True  # Embed docstrings in extensions
 Options.fast_fail = True  # Abort compilation on first error
 Options.warning_errors = True  # Treat compiler warnings as errors
-PROFILE_HOOKS = False  # Write profiling hooks into methods (x2 performance overhead)
-LINE_TRACING = False  # Enable line tracing for code coverage
+PROFILE_HOOKS = True  # Write profiling hooks into methods (x2 performance overhead)
+LINE_TRACING = True  # Enable line tracing for code coverage
 
 # Cython compiler directives
 CYTHON_COMPILER_DIRECTIVES = {
@@ -88,6 +88,7 @@ if __name__ == "__main__":
     if os.uname().sysname == "Darwin":
         print("MacOS: Setting multiprocessing method to 'fork'.")
         import multiprocessing
+
         multiprocessing.set_start_method("fork", force=True)
 
     print("Starting build")

@@ -38,15 +38,24 @@ USDJPY_FXCM = TestStubs.symbol_usdjpy_fxcm()
 
 
 class BacktestEnginePerformanceTests(unittest.TestCase):
-
     def test_run_with_empty_strategy(self):
         # Arrange
         usdjpy = InstrumentLoader.default_fx_ccy(TestStubs.symbol_usdjpy_fxcm())
 
         data = BacktestDataContainer()
         data.add_instrument(usdjpy)
-        data.add_bars(usdjpy.symbol, BarAggregation.MINUTE, PriceType.BID, TestDataProvider.usdjpy_1min_bid())
-        data.add_bars(usdjpy.symbol, BarAggregation.MINUTE, PriceType.ASK, TestDataProvider.usdjpy_1min_ask())
+        data.add_bars(
+            usdjpy.symbol,
+            BarAggregation.MINUTE,
+            PriceType.BID,
+            TestDataProvider.usdjpy_1min_bid(),
+        )
+        data.add_bars(
+            usdjpy.symbol,
+            BarAggregation.MINUTE,
+            PriceType.ASK,
+            TestDataProvider.usdjpy_1min_ask(),
+        )
 
         strategies = [EmptyStrategy("001")]
 
@@ -64,7 +73,7 @@ class BacktestEnginePerformanceTests(unittest.TestCase):
         start = datetime(2013, 1, 1, 22, 0, 0, 0, tzinfo=pytz.utc)
         stop = datetime(2013, 8, 10, 0, 0, 0, 0, tzinfo=pytz.utc)
 
-        stats_file = "perf_stats_backtest_run_empty.prof"
+        stats_file = "profile/perf_stats_backtest_run_empty.prof"
         cProfile.runctx("engine.run(start, stop)", globals(), locals(), stats_file)
         s = pstats.Stats(stats_file)
         s.strip_dirs().sort_stats("time").print_stats()
@@ -92,19 +101,31 @@ class BacktestEnginePerformanceTests(unittest.TestCase):
 
         data = BacktestDataContainer()
         data.add_instrument(usdjpy)
-        data.add_bars(usdjpy.symbol, BarAggregation.MINUTE, PriceType.BID, TestDataProvider.usdjpy_1min_bid())
-        data.add_bars(usdjpy.symbol, BarAggregation.MINUTE, PriceType.ASK, TestDataProvider.usdjpy_1min_ask())
+        data.add_bars(
+            usdjpy.symbol,
+            BarAggregation.MINUTE,
+            PriceType.BID,
+            TestDataProvider.usdjpy_1min_bid(),
+        )
+        data.add_bars(
+            usdjpy.symbol,
+            BarAggregation.MINUTE,
+            PriceType.ASK,
+            TestDataProvider.usdjpy_1min_ask(),
+        )
 
-        strategies = [EMACross(
-            symbol=usdjpy.symbol,
-            bar_spec=TestStubs.bar_spec_1min_bid(),
-            fast_ema=10,
-            slow_ema=20)]
+        strategies = [
+            EMACross(
+                symbol=usdjpy.symbol,
+                bar_spec=TestStubs.bar_spec_1min_bid(),
+                fast_ema=10,
+                slow_ema=20,
+            )
+        ]
 
         config = BacktestConfig(
-            exec_db_type="in-memory",
-            bypass_logging=True,
-            console_prints=False)
+            exec_db_type="in-memory", bypass_logging=True, console_prints=False
+        )
 
         engine = BacktestEngine(
             data=data,
@@ -119,7 +140,7 @@ class BacktestEnginePerformanceTests(unittest.TestCase):
         start = datetime(2013, 2, 1, 0, 0, 0, 0, tzinfo=pytz.utc)
         stop = datetime(2013, 2, 10, 0, 0, 0, 0, tzinfo=pytz.utc)
 
-        stats_file = "perf_stats_tick_processing.prof"
+        stats_file = "profile/perf_stats_tick_processing.prof"
         cProfile.runctx("engine.run(start, stop)", globals(), locals(), stats_file)
         s = pstats.Stats(stats_file)
         s.strip_dirs().sort_stats("time").print_stats()
@@ -132,19 +153,31 @@ class BacktestEnginePerformanceTests(unittest.TestCase):
 
         data = BacktestDataContainer()
         data.add_instrument(usdjpy)
-        data.add_bars(usdjpy.symbol, BarAggregation.MINUTE, PriceType.BID, TestDataProvider.usdjpy_1min_bid())
-        data.add_bars(usdjpy.symbol, BarAggregation.MINUTE, PriceType.ASK, TestDataProvider.usdjpy_1min_ask())
+        data.add_bars(
+            usdjpy.symbol,
+            BarAggregation.MINUTE,
+            PriceType.BID,
+            TestDataProvider.usdjpy_1min_bid(),
+        )
+        data.add_bars(
+            usdjpy.symbol,
+            BarAggregation.MINUTE,
+            PriceType.ASK,
+            TestDataProvider.usdjpy_1min_ask(),
+        )
 
-        strategies = [EMACross(
-            symbol=usdjpy.symbol,
-            bar_spec=TestStubs.bar_spec_1min_bid(),
-            fast_ema=10,
-            slow_ema=20)]
+        strategies = [
+            EMACross(
+                symbol=usdjpy.symbol,
+                bar_spec=TestStubs.bar_spec_1min_bid(),
+                fast_ema=10,
+                slow_ema=20,
+            )
+        ]
 
         config = BacktestConfig(
-            exec_db_type="in-memory",
-            bypass_logging=True,
-            console_prints=False)
+            exec_db_type="in-memory", bypass_logging=True, console_prints=False
+        )
 
         engine = BacktestEngine(
             data=data,
@@ -159,7 +192,7 @@ class BacktestEnginePerformanceTests(unittest.TestCase):
         start = datetime(2013, 2, 1, 0, 0, 0, 0, tzinfo=pytz.utc)
         stop = datetime(2013, 3, 1, 0, 0, 0, 0, tzinfo=pytz.utc)
 
-        stats_file = "perf_stats_backtest_run_ema.prof"
+        stats_file = "profile/perf_stats_backtest_run_ema.prof"
         cProfile.runctx("engine.run(start, stop)", globals(), locals(), stats_file)
         s = pstats.Stats(stats_file)
         s.strip_dirs().sort_stats("time").print_stats()
