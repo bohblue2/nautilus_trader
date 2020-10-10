@@ -32,15 +32,12 @@ cython = "^0.29.21"
 empyrical = "^0.5.3"
 # `importlib.metadata` is in the Python stdlib from 3.8 onwards
 importlib-metadata = {version = "^1.2.0", python = "<3.8"}
-lz4 = "^3.1.0"
 matplotlib = "^3.3"
 msgpack = "^1.0.0"
 numpy = "^1.19.1"
 pandas = "^1.0.5"
 psutil = "^5.7.0"
-pymongo = "^3.10.1"
 pytz = "^2020.1"
-pyzmq = "^19.0.1"
 redis = "3.5.3"
 scipy = "^1.5.0"
 
@@ -51,10 +48,22 @@ pre-commit = { version = "^2.7.1", python = "^3.6.1" }
 pytest = "^6.0"
 pytest-cov = "^2.10"
 pytest-xdist = {extras = ["psutil"], version = "^2.1.0"}
+nox = "^2020.8.22"
+nox-poetry = "^0.5.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--dist=loadscope --numprocesses=auto -ra --cov=nautilus_trader --cov-report=xml"
+addopts = "--dist=loadscope --numprocesses=auto -ra"
+
+[tool.coverage.paths]
+source = ["nautilus_trader"]
+[tool.coverage.run]
+branch = true
+plugins = ["Cython.Coverage"]
+source = ["nautilus_trader"]
+[tool.coverage.report]
+show_missing = true
+fail_under = 0
 
 [tool.isort]
 src_paths = ["examples", "nautilus_trader", "scripts", "tests", "tools"]
@@ -69,7 +78,7 @@ known_first_party = ["examples", "nautilus_trader", "tests"]
 known_third_party = []
 lexicographical = true
 line_length = 88
-lines_after_imports = 1
+lines_after_imports = 2
 lines_between_types = 1
 multi_line_output = 3
 single_line_exclusions = "typing"

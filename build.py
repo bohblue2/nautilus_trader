@@ -10,6 +10,11 @@ import numpy as np
 from setuptools import Distribution
 from setuptools import Extension
 
+
+PROFILING_MODE = bool(os.getenv("PROFILING_MODE", "False"))
+PROFILING_MODE = True
+print(f"{PROFILING_MODE=}")
+
 # ------------------------------------------------------------------------------
 # Cython (edit here only)
 # ------------------------------------------------------------------------------
@@ -21,8 +26,7 @@ Options.docstrings = True  # Include docstrings in modules
 Options.embed_pos_in_docstring = True  # Embed docstrings in extensions
 Options.fast_fail = True  # Abort compilation on first error
 Options.warning_errors = True  # Treat compiler warnings as errors
-PROFILE_HOOKS = True  # Write profiling hooks into methods (x2 performance overhead)
-LINE_TRACING = True  # Enable line tracing for code coverage
+LINE_TRACING = PROFILING_MODE  # Enable line tracing for code coverage
 
 # Cython compiler directives
 CYTHON_COMPILER_DIRECTIVES = {
@@ -30,7 +34,6 @@ CYTHON_COMPILER_DIRECTIVES = {
     "cdivision": True,  # If division is as per C with no check for zero (35% speed up)
     "embedsignature": True,  # If docstrings should be embedded into C signatures
     "emit_code_comments": True,  # If comments should be emitted to generated C code
-    "profile": PROFILE_HOOKS,  # See above
     "linetrace": LINE_TRACING,  # See above
 }
 
