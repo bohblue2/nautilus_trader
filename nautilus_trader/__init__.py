@@ -17,6 +17,7 @@
 
 import os
 
+
 # `importlib.metadata` is available from 3.8 onward.
 # Prior to that we need the `importlib_metadata` package.
 try:
@@ -29,6 +30,7 @@ except ImportError:
 
 PACKAGE_ROOT = os.path.dirname(os.path.abspath(__file__))
 
+__author__ = "Nautech Systems"
 
 try:
     __version__ = version(__name__)
