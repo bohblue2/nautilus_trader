@@ -15,7 +15,6 @@
 
 use std::fmt::Debug;
 
-use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString, FromRepr};
 
@@ -41,7 +40,7 @@ use strum::{Display, EnumIter, EnumString, FromRepr};
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
 )]
 pub enum ComponentState {
     /// When a component is instantiated, but not yet ready to fulfill its specification.
@@ -96,7 +95,7 @@ pub enum ComponentState {
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
 )]
 pub enum ComponentTrigger {
     /// A trigger for the component to initialize.
@@ -153,7 +152,7 @@ pub enum ComponentTrigger {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
 )]
 pub enum LogLevel {
     /// A level lower than all other log levels (off).
@@ -200,30 +199,44 @@ pub enum LogLevel {
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
 )]
 pub enum LogColor {
     /// The default/normal log color.
-    #[strum(serialize = "")]
+    #[strum(serialize = "NORMAL")]
     Normal = 0,
     /// The green log color, typically used with [`LogLevel::Info`] log levels and associated with success events.
-    #[strum(serialize = "\x1b[92m")]
+    #[strum(serialize = "GREEN")]
     Green = 1,
     /// The blue log color, typically used with [`LogLevel::Info`] log levels and associated with user actions.
-    #[strum(serialize = "\x1b[94m")]
+    #[strum(serialize = "BLUE")]
     Blue = 2,
     /// The magenta log color, typically used with [`LogLevel::Info`] log levels.
-    #[strum(serialize = "\x1b[35m")]
+    #[strum(serialize = "MAGENTA")]
     Magenta = 3,
     /// The cyan log color, typically used with [`LogLevel::Info`] log levels.
-    #[strum(serialize = "\x1b[36m")]
+    #[strum(serialize = "CYAN")]
     Cyan = 4,
     /// The yellow log color, typically used with [`LogLevel::Warning`] log levels.
-    #[strum(serialize = "\x1b[1;33m")]
+    #[strum(serialize = "YELLOW")]
     Yellow = 5,
     /// The red log color, typically used with [`LogLevel::Error`] level.
-    #[strum(serialize = "\x1b[1;31m")]
+    #[strum(serialize = "RED")]
     Red = 6,
+}
+
+impl LogColor {
+    pub fn as_ansi(&self) -> &str {
+        match *self {
+            Self::Normal => "",
+            Self::Green => "\x1b[92m",
+            Self::Blue => "\x1b[94m",
+            Self::Magenta => "\x1b[35m",
+            Self::Cyan => "\x1b[36m",
+            Self::Yellow => "\x1b[1;33m",
+            Self::Red => "\x1b[1;31m",
+        }
+    }
 }
 
 impl From<u8> for LogColor {
@@ -248,7 +261,7 @@ impl From<u8> for LogColor {
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
 )]
 pub enum LogFormat {
     /// Header log format. This ANSI escape code is used for magenta text color,

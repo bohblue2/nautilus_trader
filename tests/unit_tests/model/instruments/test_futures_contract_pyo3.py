@@ -13,8 +13,8 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-from nautilus_trader.core.nautilus_pyo3 import FuturesContract
-from nautilus_trader.model.instruments import FuturesContract as LegacyFuturesContract
+from nautilus_trader.core import nautilus_pyo3
+from nautilus_trader.model.instruments import FuturesContract
 from nautilus_trader.test_kit.rust.instruments_pyo3 import TestInstrumentProviderPyo3
 
 
@@ -33,10 +33,10 @@ def test_hash():
 
 def test_to_dict():
     result = _ES_FUTURE.to_dict()
-    assert FuturesContract.from_dict(result) == _ES_FUTURE
+    assert nautilus_pyo3.FuturesContract.from_dict(result) == _ES_FUTURE
     assert result == {
         "type": "FuturesContract",
-        "id": "ESZ1.XCME",
+        "id": "ESZ1.GLBX",
         "raw_symbol": "ESZ1",
         "asset_class": "INDEX",
         "underlying": "ES",
@@ -45,18 +45,36 @@ def test_to_dict():
         "currency": "USD",
         "price_precision": 2,
         "price_increment": "0.01",
+        "size_precision": 0,
+        "size_increment": "1",
         "multiplier": "1",
         "lot_size": "1",
         "max_price": None,
         "max_quantity": None,
         "min_price": None,
-        "min_quantity": None,
+        "min_quantity": "1",
+        "margin_init": "0",
+        "margin_maint": "0",
+        "info": {},
         "ts_event": 0,
         "ts_init": 0,
+        "exchange": "XCME",
     }
 
 
 def test_legacy_futures_contract_from_pyo3():
-    future = LegacyFuturesContract.from_pyo3(_ES_FUTURE)
+    future = FuturesContract.from_pyo3(_ES_FUTURE)
 
-    assert future.id.value == "ESZ1.XCME"
+    assert future.id.value == "ESZ1.GLBX"
+
+
+def test_pyo3_cython_conversion():
+    futures_contract_pyo3 = TestInstrumentProviderPyo3.futures_contract_es()
+    futures_contract_pyo3_dict = futures_contract_pyo3.to_dict()
+    futures_contract_cython = FuturesContract.from_pyo3(futures_contract_pyo3)
+    futures_contract_cython_dict = FuturesContract.to_dict(futures_contract_cython)
+    futures_contract_pyo3_back = nautilus_pyo3.FuturesContract.from_dict(
+        futures_contract_cython_dict,
+    )
+    assert futures_contract_pyo3 == futures_contract_pyo3_back
+    assert futures_contract_pyo3_dict == futures_contract_cython_dict

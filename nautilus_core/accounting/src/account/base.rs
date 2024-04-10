@@ -15,7 +15,6 @@
 
 use std::collections::HashMap;
 
-use anyhow::Result;
 use nautilus_model::{
     enums::{AccountType, LiquiditySide, OrderSide},
     events::{account::state::AccountState, order::filled::OrderFilled},
@@ -26,16 +25,14 @@ use nautilus_model::{
         balance::AccountBalance, currency::Currency, money::Money, price::Price, quantity::Quantity,
     },
 };
-use pyo3::prelude::*;
 use rust_decimal::prelude::ToPrimitive;
 
 #[derive(Debug)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 pub struct BaseAccount {
-    #[pyo3(get)]
     pub id: AccountId,
     pub account_type: AccountType,
     pub base_currency: Option<Currency>,
@@ -47,7 +44,7 @@ pub struct BaseAccount {
 }
 
 impl BaseAccount {
-    pub fn new(event: AccountState, calculate_account_state: bool) -> Result<Self> {
+    pub fn new(event: AccountState, calculate_account_state: bool) -> anyhow::Result<Self> {
         let mut balances_starting: HashMap<Currency, Money> = HashMap::new();
         let mut balances: HashMap<Currency, AccountBalance> = HashMap::new();
         event.balances.iter().for_each(|balance| {
@@ -147,7 +144,7 @@ impl BaseAccount {
         quantity: Quantity,
         price: Price,
         use_quote_for_inverse: Option<bool>,
-    ) -> Result<Money> {
+    ) -> anyhow::Result<Money> {
         let base_currency = instrument
             .base_currency()
             .unwrap_or(instrument.quote_currency());
@@ -180,7 +177,7 @@ impl BaseAccount {
         instrument: T,
         fill: OrderFilled,
         position: Option<Position>,
-    ) -> Result<Vec<Money>> {
+    ) -> anyhow::Result<Vec<Money>> {
         let mut pnls: HashMap<Currency, Money> = HashMap::new();
         let quote_currency = instrument.quote_currency();
         let base_currency = instrument.base_currency();
@@ -224,7 +221,7 @@ impl BaseAccount {
         last_px: Price,
         liquidity_side: LiquiditySide,
         use_quote_for_inverse: Option<bool>,
-    ) -> Result<Money> {
+    ) -> anyhow::Result<Money> {
         assert!(
             liquidity_side != LiquiditySide::NoLiquiditySide,
             "Invalid liquidity side"

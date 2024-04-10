@@ -13,27 +13,24 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-pub mod decode;
+pub mod enums;
 pub mod historical;
 pub mod live;
 pub mod loader;
+pub mod types;
 
 use pyo3::prelude::*;
 
 /// Loaded as nautilus_pyo3.databento
 #[pymodule]
 pub fn databento(_: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_class::<super::enums::DatabentoStatisticType>()?;
+    m.add_class::<super::enums::DatabentoStatisticUpdateAction>()?;
     m.add_class::<super::types::DatabentoPublisher>()?;
+    m.add_class::<super::types::DatabentoStatistics>()?;
+    m.add_class::<super::types::DatabentoImbalance>()?;
     m.add_class::<super::loader::DatabentoDataLoader>()?;
     m.add_class::<live::DatabentoLiveClient>()?;
     m.add_class::<historical::DatabentoHistoricalClient>()?;
-    m.add_function(wrap_pyfunction!(decode::py_decode_equity, m)?)?;
-    m.add_function(wrap_pyfunction!(decode::py_decode_futures_contract, m)?)?;
-    m.add_function(wrap_pyfunction!(decode::py_decode_options_contract, m)?)?;
-    m.add_function(wrap_pyfunction!(decode::py_decode_mbo_msg, m)?)?;
-    m.add_function(wrap_pyfunction!(decode::py_decode_trade_msg, m)?)?;
-    m.add_function(wrap_pyfunction!(decode::py_decode_mbp1_msg, m)?)?;
-    m.add_function(wrap_pyfunction!(decode::py_decode_mbp10_msg, m)?)?;
-
     Ok(())
 }

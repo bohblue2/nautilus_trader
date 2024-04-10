@@ -15,12 +15,10 @@
 
 use std::fmt::{Debug, Display};
 
-use anyhow::Result;
 use nautilus_model::{
     data::{bar::Bar, quote::QuoteTick, trade::TradeTick},
     enums::PriceType,
 };
-use pyo3::prelude::*;
 
 use crate::{
     average::{MovingAverageFactory, MovingAverageType},
@@ -30,7 +28,10 @@ use crate::{
 /// An indicator which calculates a relative strength index (RSI) across a rolling window.
 #[repr(C)]
 #[derive(Debug)]
-#[pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")
+)]
 pub struct RelativeStrengthIndex {
     pub period: usize,
     pub ma_type: MovingAverageType,
@@ -85,7 +86,7 @@ impl Indicator for RelativeStrengthIndex {
 }
 
 impl RelativeStrengthIndex {
-    pub fn new(period: usize, ma_type: Option<MovingAverageType>) -> Result<Self> {
+    pub fn new(period: usize, ma_type: Option<MovingAverageType>) -> anyhow::Result<Self> {
         Ok(Self {
             period,
             ma_type: ma_type.unwrap_or(MovingAverageType::Exponential),

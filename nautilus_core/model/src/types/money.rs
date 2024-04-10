@@ -21,9 +21,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::Result;
-use nautilus_core::correctness::check_f64_in_range_inclusive;
-use pyo3::prelude::*;
+use nautilus_core::correctness::check_in_range_inclusive_f64;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize};
 use thousands::Separable;
@@ -41,7 +39,7 @@ pub const MONEY_MIN: f64 = -9_223_372_036.0;
 #[derive(Clone, Copy, Debug, Eq)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 pub struct Money {
     pub raw: i64,
@@ -49,8 +47,8 @@ pub struct Money {
 }
 
 impl Money {
-    pub fn new(amount: f64, currency: Currency) -> Result<Self> {
-        check_f64_in_range_inclusive(amount, MONEY_MIN, MONEY_MAX, "`Money` amount")?;
+    pub fn new(amount: f64, currency: Currency) -> anyhow::Result<Self> {
+        check_in_range_inclusive_f64(amount, MONEY_MIN, MONEY_MAX, "amount")?;
 
         Ok(Self {
             raw: f64_to_fixed_i64(amount, currency.precision),

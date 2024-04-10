@@ -15,10 +15,8 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
 use derive_builder::Builder;
 use nautilus_core::{time::UnixNanos, uuid::UUID4};
-use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::identifiers::{
@@ -32,7 +30,7 @@ use crate::identifiers::{
 #[serde(tag = "type")]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 pub struct OrderExpired {
     pub trader_id: TraderId,
@@ -60,7 +58,7 @@ impl OrderExpired {
         reconciliation: bool,
         venue_order_id: Option<VenueOrderId>,
         account_id: Option<AccountId>,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             trader_id,
             strategy_id,

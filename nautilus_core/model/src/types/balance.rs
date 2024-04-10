@@ -15,8 +15,6 @@
 
 use std::fmt::{Display, Formatter};
 
-use anyhow::Result;
-use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -27,7 +25,7 @@ use crate::{
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 pub struct AccountBalance {
     pub currency: Currency,
@@ -37,7 +35,7 @@ pub struct AccountBalance {
 }
 
 impl AccountBalance {
-    pub fn new(total: Money, locked: Money, free: Money) -> Result<Self> {
+    pub fn new(total: Money, locked: Money, free: Money) -> anyhow::Result<Self> {
         assert!(total == locked + free,
                 "Total balance is not equal to the sum of locked and free balances: {total} != {locked} + {free}"
             );
@@ -69,7 +67,7 @@ impl PartialEq for AccountBalance {
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 pub struct MarginBalance {
     pub initial: Money,
@@ -79,7 +77,11 @@ pub struct MarginBalance {
 }
 
 impl MarginBalance {
-    pub fn new(initial: Money, maintenance: Money, instrument_id: InstrumentId) -> Result<Self> {
+    pub fn new(
+        initial: Money,
+        maintenance: Money,
+        instrument_id: InstrumentId,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             initial,
             maintenance,

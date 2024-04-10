@@ -15,18 +15,19 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
 use nautilus_model::{
     data::{bar::Bar, quote::QuoteTick, trade::TradeTick},
     enums::PriceType,
 };
-use pyo3::prelude::*;
 
 use crate::indicator::{Indicator, MovingAverage};
 
 #[repr(C)]
 #[derive(Debug)]
-#[pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")
+)]
 pub struct WilderMovingAverage {
     pub period: usize,
     pub price_type: PriceType,
@@ -77,7 +78,7 @@ impl Indicator for WilderMovingAverage {
 }
 
 impl WilderMovingAverage {
-    pub fn new(period: usize, price_type: Option<PriceType>) -> Result<Self> {
+    pub fn new(period: usize, price_type: Option<PriceType>) -> anyhow::Result<Self> {
         // Inputs don't require validation, however we return a `Result`
         // to standardize with other indicators which do need validation.
         // The Wilder Moving Average is The Wilder's Moving Average is simply

@@ -1,3 +1,60 @@
+# NautilusTrader 1.190.0 Beta
+
+Released on 22nd March 2024 (UTC).
+
+### Enhancements
+- Added Databento adapter `continuous`, `parent` and `instrument_id` symbology support (will infer from symbols)
+- Added `DatabaseConfig.timeout` config option for timeout seconds to wait for a new connection
+- Added CSV tick and bar data loader params, thanks @rterbush
+- Implemented `LogGuard` to ensure global logger is flushed on termination, thanks @ayush-sb and @twitu
+- Improved Interactive Brokers client connectivity resilience and component lifecycle, thanks @benjaminsingleton
+- Improved Binance execution client ping listen key error handling and logging
+- Improved Redis cache adapter and message bus error handling and logging
+- Improved Redis port parsing (`DatabaseConfig.port` can now be either a string or integer)
+- Refactored `InteractiveBrokersEWrapper`, thanks @rsmb7z
+- Redact Redis passwords in strings and logs
+- Upgraded `redis` crate to 0.25.2 which bumps up TLS dependencies, and turned on `tls-rustls-webpki-roots` feature flag
+
+### Breaking Changes
+None
+
+### Fixes
+- Fixed JSON format for log file output (was missing `timestamp` and `trader\_id`)
+- Fixed `DatabaseConfig` port JSON parsing for Redis (was always defaulting to 6379)
+- Fixed `ChandeMomentumOscillator` indicator divide by zero error (both Rust and Cython versions)
+
+---
+
+# NautilusTrader 1.189.0 Beta
+
+Released on 15th March 2024 (UTC).
+
+### Enhancements
+- Implemented Binance order book snapshot rebuilds on websocket reconnect (see integration guide)
+- Added additional validations for `OrderMatchingEngine` (will now raise a `RuntimeError` when a price or size precision for `OrderFilled` does not match the instruments precisions)
+- Added `LoggingConfig.use_pyo3` config option for pyo3 based logging initialization (worse performance but allows visibility into logs originating from Rust)
+- Added `exchange` field to `FuturesContract`, `FuturesSpread`, `OptionsContract` and `OptionsSpread` (optional)
+
+### Breaking Changes
+- Changed Arrow schema adding `exchange` field for `FuturesContract`, `FuturesSpread`, `OptionsContract` and `OptionsSpread`
+
+### Fixes
+- Fixed `MessageBus` handling of subscriptions after a topic has been published on (was previously dropping messages for these late subscribers)
+- Fixed `MessageBus` handling of subscriptions under certain edge cases (subscriptions list could be resized on iteration causing a `RuntimeError`)
+- Fixed `Throttler` handling of sending messages after messages have been dropped, thanks @davidsblom
+- Fixed `OrderBookDelta.to_pyo3_list` using zero precision from clear delta
+- Fixed `DataTransformer.pyo3_order_book_deltas_to_record_batch_bytes` using zero precision from clear delta
+- Fixed `OrderBookMbo` and `OrderBookMbp` integrity check when crossed book
+- Fixed `OrderBookMbp` error when attempting to add to a L1\_MBP book type (now raises `RuntimeError` rather than panicking)
+- Fixed Interactive Brokers connection error logging (#1524), thanks @benjaminsingleton
+- Fixed `SimulationModuleConfig` location and missing re-export from `config` subpackage
+- Fixed logging `StdoutWriter` from also writing error logs (writers were duplicating error logs)
+- Fixed `BinanceWebSocketClient` to [new specification](https://binance-docs.github.io/apidocs/futures/en/#websocket-market-streams) which requires responding to pings with a pong containing the pings payload
+- Fixed Binance Futures `AccountBalance` calculations based on wallet and available balance
+- Fixed `ExecAlgorithm` circular import issue for installed wheels (importing from `execution.algorithm` was a circular import)
+
+---
+
 # NautilusTrader 1.188.0 Beta
 
 Released on 25th February 2024 (UTC).

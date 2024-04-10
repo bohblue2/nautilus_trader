@@ -104,6 +104,9 @@ cdef extern from "../includes/common.h":
     cdef struct LiveClock:
         pass
 
+    cdef struct LogGuard:
+        pass
+
     # Provides a generic message bus to facilitate various messaging patterns.
     #
     # The bus provides both a producer and consumer API for Pub/Sub, Req/Rep, as
@@ -130,9 +133,6 @@ cdef extern from "../includes/common.h":
     cdef struct TestClock:
         pass
 
-    cdef struct PyCallableWrapper_t:
-        PyObject *ptr;
-
     # Provides a C compatible Foreign Function Interface (FFI) for an underlying [`TestClock`].
     #
     # This struct wraps `TestClock` in a way that makes it compatible with C function
@@ -155,6 +155,17 @@ cdef extern from "../includes/common.h":
     # both mutable and immutable access.
     cdef struct LiveClock_API:
         LiveClock *_0;
+
+    # Provides a C compatible Foreign Function Interface (FFI) for an underlying [`LogGuard`].
+    #
+    # This struct wraps `LogGuard` in a way that makes it compatible with C function
+    # calls, enabling interaction with `LogGuard` in a C environment.
+    #
+    # It implements the `Deref` trait, allowing instances of `LogGuard_API` to be
+    # dereferenced to `LogGuard`, providing access to `LogGuard`'s methods without
+    # having to manually access the underlying `LogGuard` instance.
+    cdef struct LogGuard_API:
+        LogGuard *_0;
 
     # Provides a C compatible Foreign Function Interface (FFI) for an underlying [`MessageBus`].
     #
@@ -182,10 +193,8 @@ cdef extern from "../includes/common.h":
     cdef struct TimeEventHandler_t:
         # The event.
         TimeEvent_t event;
-        # The Python callable pointer.
-        PyObject *callback_ptr;
-
-    PyCallableWrapper_t dummy_callable(PyCallableWrapper_t c);
+        # The callable raw pointer.
+        char *callback_ptr;
 
     # Returns whether the core logger is enabled.
     uint8_t logging_is_initialized();
@@ -359,18 +368,6 @@ cdef extern from "../includes/common.h":
     # - Assumes `ptr` is a valid C string pointer.
     LogColor log_color_from_cstr(const char *ptr);
 
-    # Initializes tracing.
-    #
-    # Tracing is meant to be used to trace/debug async Rust code. It can be
-    # configured to filter modules and write up to a specific level only using
-    # by passing a configuration using the `RUST_LOG` environment variable.
-    #
-    # # Safety
-    #
-    # Should only be called once during an applications run, ideally at the
-    # beginning of the run.
-    void tracing_init();
-
     # Initializes logging.
     #
     # Logging should be used for Python and sync Rust logic which is most of
@@ -387,17 +384,17 @@ cdef extern from "../includes/common.h":
     # - Assume `file_name_ptr` is either NULL or a valid C string pointer.
     # - Assume `file_format_ptr` is either NULL or a valid C string pointer.
     # - Assume `component_level_ptr` is either NULL or a valid C string pointer.
-    void logging_init(TraderId_t trader_id,
-                      UUID4_t instance_id,
-                      LogLevel level_stdout,
-                      LogLevel level_file,
-                      const char *directory_ptr,
-                      const char *file_name_ptr,
-                      const char *file_format_ptr,
-                      const char *component_levels_ptr,
-                      uint8_t is_colored,
-                      uint8_t is_bypassed,
-                      uint8_t print_config);
+    LogGuard_API logging_init(TraderId_t trader_id,
+                              UUID4_t instance_id,
+                              LogLevel level_stdout,
+                              LogLevel level_file,
+                              const char *directory_ptr,
+                              const char *file_name_ptr,
+                              const char *file_format_ptr,
+                              const char *component_levels_ptr,
+                              uint8_t is_colored,
+                              uint8_t is_bypassed,
+                              uint8_t print_config);
 
     # Creates a new log event.
     #
@@ -428,8 +425,8 @@ cdef extern from "../includes/common.h":
     # - Assumes `component_ptr` is a valid C string pointer.
     void logging_log_sysinfo(const char *component_ptr);
 
-    # Flushes global logger buffers.
-    void logger_flush();
+    # Flushes global logger buffers of any records.
+    void logger_drop(LogGuard_API log_guard);
 
     # # Safety
     #
@@ -527,8 +524,6 @@ cdef extern from "../includes/common.h":
     #
     # - Assumes `pattern_ptr` is a valid C string pointer.
     CVec msgbus_matching_callbacks(MessageBus_API *bus, const char *pattern_ptr);
-
-    void vec_pycallable_drop(CVec v);
 
     # # Safety
     #

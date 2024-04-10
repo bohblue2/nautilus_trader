@@ -15,12 +15,10 @@
 
 use std::fmt::{Display, Formatter};
 
-use anyhow::Result;
 use nautilus_model::{
     data::{bar::Bar, quote::QuoteTick, trade::TradeTick},
     enums::PriceType,
 };
-use pyo3::prelude::*;
 
 use crate::{
     average::wma::WeightedMovingAverage,
@@ -32,7 +30,10 @@ use crate::{
 /// moving average.
 #[repr(C)]
 #[derive(Debug)]
-#[pyclass(module = "nautilus_trader.core.nautilus.pyo3.indicators")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")
+)]
 pub struct HullMovingAverage {
     pub period: usize,
     pub price_type: PriceType,
@@ -95,7 +96,7 @@ fn _get_weights(size: usize) -> Vec<f64> {
 }
 
 impl HullMovingAverage {
-    pub fn new(period: usize, price_type: Option<PriceType>) -> Result<Self> {
+    pub fn new(period: usize, price_type: Option<PriceType>) -> anyhow::Result<Self> {
         let period_halved = period / 2;
         let period_sqrt = (period as f64).sqrt() as usize;
 

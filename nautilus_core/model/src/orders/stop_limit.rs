@@ -19,7 +19,6 @@ use std::{
 };
 
 use nautilus_core::{time::UnixNanos, uuid::UUID4};
-use pyo3::prelude::*;
 use ustr::Ustr;
 
 use super::base::{Order, OrderCore, OrderError};
@@ -38,9 +37,10 @@ use crate::{
     types::{price::Price, quantity::Quantity},
 };
 
+#[derive(Clone, Debug)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 pub struct StopLimitOrder {
     pub price: Price,
@@ -56,7 +56,6 @@ pub struct StopLimitOrder {
 }
 
 impl StopLimitOrder {
-    #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         trader_id: TraderId,
@@ -86,8 +85,8 @@ impl StopLimitOrder {
         tags: Option<Ustr>,
         init_id: UUID4,
         ts_init: UnixNanos,
-    ) -> Self {
-        Self {
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
             core: OrderCore::new(
                 trader_id,
                 strategy_id,
@@ -120,7 +119,7 @@ impl StopLimitOrder {
             trigger_instrument_id,
             is_triggered: false,
             ts_triggered: None,
-        }
+        })
     }
 }
 
@@ -395,5 +394,6 @@ impl From<OrderInitialized> for StopLimitOrder {
             event.event_id,
             event.ts_event,
         )
+        .unwrap() // SAFETY: From can panic
     }
 }

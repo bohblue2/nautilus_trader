@@ -22,7 +22,6 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use anyhow::Result;
 use nautilus_model::{
     enums::{AccountType, LiquiditySide, OrderSide},
     events::{account::state::AccountState, order::filled::OrderFilled},
@@ -37,7 +36,6 @@ use nautilus_model::{
         quantity::Quantity,
     },
 };
-use pyo3::prelude::*;
 use rust_decimal::prelude::ToPrimitive;
 
 use crate::account::{base::BaseAccount, Account};
@@ -45,7 +43,7 @@ use crate::account::{base::BaseAccount, Account};
 #[derive(Debug)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.accounting")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.accounting")
 )]
 pub struct MarginAccount {
     pub base: BaseAccount,
@@ -55,7 +53,7 @@ pub struct MarginAccount {
 }
 
 impl MarginAccount {
-    pub fn new(event: AccountState, calculate_account_state: bool) -> Result<Self> {
+    pub fn new(event: AccountState, calculate_account_state: bool) -> anyhow::Result<Self> {
         Ok(Self {
             base: BaseAccount::new(event, calculate_account_state)?,
             leverages: HashMap::new(),
@@ -323,7 +321,7 @@ impl Account for MarginAccount {
         quantity: Quantity,
         price: Price,
         use_quote_for_inverse: Option<bool>,
-    ) -> Result<Money> {
+    ) -> anyhow::Result<Money> {
         self.base_calculate_balance_locked(instrument, side, quantity, price, use_quote_for_inverse)
     }
     fn calculate_pnls<T: Instrument>(
@@ -331,7 +329,7 @@ impl Account for MarginAccount {
         instrument: T,
         fill: OrderFilled,
         position: Option<Position>,
-    ) -> Result<Vec<Money>> {
+    ) -> anyhow::Result<Vec<Money>> {
         self.base_calculate_pnls(instrument, fill, position)
     }
     fn calculate_commission<T: Instrument>(
@@ -341,7 +339,7 @@ impl Account for MarginAccount {
         last_px: Price,
         liquidity_side: LiquiditySide,
         use_quote_for_inverse: Option<bool>,
-    ) -> Result<Money> {
+    ) -> anyhow::Result<Money> {
         self.base_calculate_commission(
             instrument,
             last_qty,

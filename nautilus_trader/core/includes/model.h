@@ -276,7 +276,7 @@ typedef enum InstrumentCloseType {
  */
 typedef enum LiquiditySide {
     /**
-     * No specific liqudity side.
+     * No liquidity side specified.
      */
     NO_LIQUIDITY_SIDE = 0,
     /**
@@ -893,14 +893,15 @@ typedef struct QuoteTick_t {
  * Represents a valid trade match ID (assigned by a trading venue).
  *
  * Maximum length is 36 characters.
- * Can correspond to the `TradeID <1003> field` of the FIX protocol.
  *
  * The unique ID assigned to the trade entity once it is received or matched by
  * the exchange or central counterparty.
+ *
+ * Can correspond to the `TradeID <1003> field` of the FIX protocol.
  */
 typedef struct TradeId_t {
     /**
-     * The trade match ID C string value as a fixed-length byte array.
+     * The trade match ID value as a fixed-length C string byte array (includes null terminator).
      */
     uint8_t value[37];
 } TradeId_t;
@@ -1256,7 +1257,7 @@ typedef struct SyntheticInstrument_API {
 } SyntheticInstrument_API;
 
 /**
- * Provides a C compatible Foreign Function Interface (FFI) for an underlying [`OrderBook`].
+ * Provides a C compatible Foreign Function Interface (FFI) for an underlying `OrderBook`.
  *
  * This struct wraps `OrderBook` in a way that makes it compatible with C function
  * calls, enabling interaction with `OrderBook` in a C environment.
@@ -2200,12 +2201,12 @@ void orderbook_update_trade_tick(struct OrderBook_API *book, const struct TradeT
 
 CVec orderbook_simulate_fills(const struct OrderBook_API *book, struct BookOrder_t order);
 
-void orderbook_check_integrity(const struct OrderBook_API *book);
+uint8_t orderbook_check_integrity(const struct OrderBook_API *book);
 
 void vec_fills_drop(CVec v);
 
 /**
- * Returns a pretty printed [`OrderBook`] number of levels per side, as a C string pointer.
+ * Returns a pretty printed `OrderBook` number of levels per side, as a C string pointer.
  */
 const char *orderbook_pprint_to_cstr(const struct OrderBook_API *book, uintptr_t num_levels);
 

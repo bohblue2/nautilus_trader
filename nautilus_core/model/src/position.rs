@@ -19,9 +19,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use anyhow::Result;
 use nautilus_core::time::UnixNanos;
-use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -44,7 +42,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.common")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 pub struct Position {
     pub events: Vec<OrderFilled>,
@@ -83,7 +81,7 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn new<T: Instrument>(instrument: T, fill: OrderFilled) -> Result<Self> {
+    pub fn new<T: Instrument>(instrument: T, fill: OrderFilled) -> anyhow::Result<Self> {
         assert_eq!(instrument.id(), fill.instrument_id);
         assert!(fill.position_id.is_some());
         assert_ne!(fill.order_side, OrderSide::NoOrderSide);

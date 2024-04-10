@@ -195,6 +195,8 @@ typedef enum LogLevel {
 
 typedef struct LiveClock LiveClock;
 
+typedef struct LogGuard LogGuard;
+
 /**
  * Provides a generic message bus to facilitate various messaging patterns.
  *
@@ -220,10 +222,6 @@ typedef struct LiveClock LiveClock;
 typedef struct MessageBus MessageBus;
 
 typedef struct TestClock TestClock;
-
-typedef struct PyCallableWrapper_t {
-    PyObject *ptr;
-} PyCallableWrapper_t;
 
 /**
  * Provides a C compatible Foreign Function Interface (FFI) for an underlying [`TestClock`].
@@ -253,6 +251,20 @@ typedef struct TestClock_API {
 typedef struct LiveClock_API {
     struct LiveClock *_0;
 } LiveClock_API;
+
+/**
+ * Provides a C compatible Foreign Function Interface (FFI) for an underlying [`LogGuard`].
+ *
+ * This struct wraps `LogGuard` in a way that makes it compatible with C function
+ * calls, enabling interaction with `LogGuard` in a C environment.
+ *
+ * It implements the `Deref` trait, allowing instances of `LogGuard_API` to be
+ * dereferenced to `LogGuard`, providing access to `LogGuard`'s methods without
+ * having to manually access the underlying `LogGuard` instance.
+ */
+typedef struct LogGuard_API {
+    struct LogGuard *_0;
+} LogGuard_API;
 
 /**
  * Provides a C compatible Foreign Function Interface (FFI) for an underlying [`MessageBus`].
@@ -299,12 +311,10 @@ typedef struct TimeEventHandler_t {
      */
     struct TimeEvent_t event;
     /**
-     * The Python callable pointer.
+     * The callable raw pointer.
      */
-    PyObject *callback_ptr;
+    char *callback_ptr;
 } TimeEventHandler_t;
-
-struct PyCallableWrapper_t dummy_callable(struct PyCallableWrapper_t c);
 
 /**
  * Returns whether the core logger is enabled.
@@ -523,20 +533,6 @@ const char *log_color_to_cstr(enum LogColor value);
 enum LogColor log_color_from_cstr(const char *ptr);
 
 /**
- * Initializes tracing.
- *
- * Tracing is meant to be used to trace/debug async Rust code. It can be
- * configured to filter modules and write up to a specific level only using
- * by passing a configuration using the `RUST_LOG` environment variable.
- *
- * # Safety
- *
- * Should only be called once during an applications run, ideally at the
- * beginning of the run.
- */
-void tracing_init(void);
-
-/**
  * Initializes logging.
  *
  * Logging should be used for Python and sync Rust logic which is most of
@@ -554,17 +550,17 @@ void tracing_init(void);
  * - Assume `file_format_ptr` is either NULL or a valid C string pointer.
  * - Assume `component_level_ptr` is either NULL or a valid C string pointer.
  */
-void logging_init(TraderId_t trader_id,
-                  UUID4_t instance_id,
-                  enum LogLevel level_stdout,
-                  enum LogLevel level_file,
-                  const char *directory_ptr,
-                  const char *file_name_ptr,
-                  const char *file_format_ptr,
-                  const char *component_levels_ptr,
-                  uint8_t is_colored,
-                  uint8_t is_bypassed,
-                  uint8_t print_config);
+struct LogGuard_API logging_init(TraderId_t trader_id,
+                                 UUID4_t instance_id,
+                                 enum LogLevel level_stdout,
+                                 enum LogLevel level_file,
+                                 const char *directory_ptr,
+                                 const char *file_name_ptr,
+                                 const char *file_format_ptr,
+                                 const char *component_levels_ptr,
+                                 uint8_t is_colored,
+                                 uint8_t is_bypassed,
+                                 uint8_t print_config);
 
 /**
  * Creates a new log event.
@@ -602,9 +598,9 @@ void logging_log_header(TraderId_t trader_id,
 void logging_log_sysinfo(const char *component_ptr);
 
 /**
- * Flushes global logger buffers.
+ * Flushes global logger buffers of any records.
  */
-void logger_flush(void);
+void logger_drop(struct LogGuard_API log_guard);
 
 /**
  * # Safety
@@ -726,8 +722,6 @@ const char *msgbus_endpoint_callback(const struct MessageBus_API *bus, const cha
  * - Assumes `pattern_ptr` is a valid C string pointer.
  */
 CVec msgbus_matching_callbacks(struct MessageBus_API *bus, const char *pattern_ptr);
-
-void vec_pycallable_drop(CVec v);
 
 /**
  * # Safety

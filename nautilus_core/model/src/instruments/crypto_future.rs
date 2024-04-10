@@ -18,9 +18,11 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use anyhow::Result;
-use nautilus_core::time::UnixNanos;
-use pyo3::prelude::*;
+use nautilus_core::{
+    correctness::{check_equal_u8, check_positive_i64, check_positive_u64},
+    time::UnixNanos,
+};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::Instrument;
@@ -34,7 +36,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 #[cfg_attr(feature = "trivial_copy", derive(Copy))]
 pub struct CryptoFuture {
@@ -49,7 +51,11 @@ pub struct CryptoFuture {
     pub size_precision: u8,
     pub price_increment: Price,
     pub size_increment: Quantity,
-    pub lot_size: Option<Quantity>,
+    pub maker_fee: Decimal,
+    pub taker_fee: Decimal,
+    pub margin_init: Decimal,
+    pub margin_maint: Decimal,
+    pub lot_size: Quantity,
     pub max_quantity: Option<Quantity>,
     pub min_quantity: Option<Quantity>,
     pub max_notional: Option<Money>,
@@ -74,6 +80,10 @@ impl CryptoFuture {
         size_precision: u8,
         price_increment: Price,
         size_increment: Quantity,
+        maker_fee: Decimal,
+        taker_fee: Decimal,
+        margin_init: Decimal,
+        margin_maint: Decimal,
         lot_size: Option<Quantity>,
         max_quantity: Option<Quantity>,
         min_quantity: Option<Quantity>,
@@ -83,7 +93,22 @@ impl CryptoFuture {
         min_price: Option<Price>,
         ts_event: UnixNanos,
         ts_init: UnixNanos,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
+        check_equal_u8(
+            price_precision,
+            price_increment.precision,
+            stringify!(price_precision),
+            stringify!(price_increment.precision),
+        )?;
+        check_equal_u8(
+            size_precision,
+            size_increment.precision,
+            stringify!(size_precision),
+            stringify!(size_increment.precision),
+        )?;
+        check_positive_i64(price_increment.raw, stringify!(price_increment.raw))?;
+        check_positive_u64(size_increment.raw, stringify!(size_increment.raw))?;
+
         Ok(Self {
             id,
             raw_symbol,
@@ -96,7 +121,11 @@ impl CryptoFuture {
             size_precision,
             price_increment,
             size_increment,
-            lot_size,
+            maker_fee,
+            taker_fee,
+            margin_init,
+            margin_maint,
+            lot_size: lot_size.unwrap_or(Quantity::from(1)),
             max_quantity,
             min_quantity,
             max_notional,
@@ -178,7 +207,7 @@ impl Instrument for CryptoFuture {
     }
 
     fn lot_size(&self) -> Option<Quantity> {
-        self.lot_size
+        Some(self.lot_size)
     }
 
     fn max_quantity(&self) -> Option<Quantity> {

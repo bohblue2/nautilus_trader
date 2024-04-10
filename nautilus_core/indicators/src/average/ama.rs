@@ -15,12 +15,10 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
 use nautilus_model::{
     data::{bar::Bar, quote::QuoteTick, trade::TradeTick},
     enums::PriceType,
 };
-use pyo3::prelude::*;
 
 use crate::{
     indicator::{Indicator, MovingAverage},
@@ -34,7 +32,10 @@ use crate::{
 /// low. The AMA will increase lag when the price swings increase.
 #[repr(C)]
 #[derive(Debug)]
-#[pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")
+)]
 pub struct AdaptiveMovingAverage {
     /// The period for the internal `EfficiencyRatio` indicator.
     pub period_efficiency_ratio: usize,
@@ -108,7 +109,7 @@ impl AdaptiveMovingAverage {
         period_fast: usize,
         period_slow: usize,
         price_type: Option<PriceType>,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         // Inputs don't require validation, however we return a `Result`
         // to standardize with other indicators which do need validation.
         Ok(Self {

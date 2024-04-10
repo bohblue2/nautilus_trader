@@ -18,9 +18,10 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use anyhow::Result;
-use nautilus_core::time::UnixNanos;
-use pyo3::prelude::*;
+use nautilus_core::{
+    correctness::{check_equal_u8, check_positive_i64, check_positive_u64},
+    time::UnixNanos,
+};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +36,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 #[cfg_attr(feature = "trivial_copy", derive(Copy))]
 pub struct CurrencyPair {
@@ -86,7 +87,22 @@ impl CurrencyPair {
         min_price: Option<Price>,
         ts_event: UnixNanos,
         ts_init: UnixNanos,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
+        check_equal_u8(
+            price_precision,
+            price_increment.precision,
+            stringify!(price_precision),
+            stringify!(price_increment.precision),
+        )?;
+        check_equal_u8(
+            size_precision,
+            size_increment.precision,
+            stringify!(size_precision),
+            stringify!(size_increment.precision),
+        )?;
+        check_positive_i64(price_increment.raw, stringify!(price_increment.raw))?;
+        check_positive_u64(size_increment.raw, stringify!(size_increment.raw))?;
+
         Ok(Self {
             id,
             raw_symbol,

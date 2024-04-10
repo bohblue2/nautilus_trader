@@ -15,12 +15,10 @@
 
 use std::fmt::{Display, Formatter};
 
-use anyhow::Result;
 use nautilus_model::{
     data::{bar::Bar, quote::QuoteTick, trade::TradeTick},
     enums::PriceType,
 };
-use pyo3::prelude::*;
 
 use crate::{
     average::ema::ExponentialMovingAverage,
@@ -31,7 +29,10 @@ use crate::{
 /// lag than the normal Exponential Moving Average (EMA)
 #[repr(C)]
 #[derive(Debug)]
-#[pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")
+)]
 pub struct DoubleExponentialMovingAverage {
     /// The rolling window period for the indicator (> 0).
     pub period: usize,
@@ -86,7 +87,7 @@ impl Indicator for DoubleExponentialMovingAverage {
 }
 
 impl DoubleExponentialMovingAverage {
-    pub fn new(period: usize, price_type: Option<PriceType>) -> Result<Self> {
+    pub fn new(period: usize, price_type: Option<PriceType>) -> anyhow::Result<Self> {
         Ok(Self {
             period,
             price_type: price_type.unwrap_or(PriceType::Last),

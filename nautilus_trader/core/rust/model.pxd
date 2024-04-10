@@ -150,7 +150,7 @@ cdef extern from "../includes/model.h":
 
     # The liqudity side for a trade in a financial market.
     cpdef enum LiquiditySide:
-        # No specific liqudity side.
+        # No liquidity side specified.
         NO_LIQUIDITY_SIDE # = 0,
         # The order passively provided liqudity to the market to complete the trade (made a market).
         MAKER # = 1,
@@ -492,12 +492,13 @@ cdef extern from "../includes/model.h":
     # Represents a valid trade match ID (assigned by a trading venue).
     #
     # Maximum length is 36 characters.
-    # Can correspond to the `TradeID <1003> field` of the FIX protocol.
     #
     # The unique ID assigned to the trade entity once it is received or matched by
     # the exchange or central counterparty.
+    #
+    # Can correspond to the `TradeID <1003> field` of the FIX protocol.
     cdef struct TradeId_t:
-        # The trade match ID C string value as a fixed-length byte array.
+        # The trade match ID value as a fixed-length C string byte array (includes null terminator).
         uint8_t value[37];
 
     # Represents a single trade tick in a financial market.
@@ -721,7 +722,7 @@ cdef extern from "../includes/model.h":
     cdef struct SyntheticInstrument_API:
         SyntheticInstrument *_0;
 
-    # Provides a C compatible Foreign Function Interface (FFI) for an underlying [`OrderBook`].
+    # Provides a C compatible Foreign Function Interface (FFI) for an underlying `OrderBook`.
     #
     # This struct wraps `OrderBook` in a way that makes it compatible with C function
     # calls, enabling interaction with `OrderBook` in a C environment.
@@ -1531,11 +1532,11 @@ cdef extern from "../includes/model.h":
 
     CVec orderbook_simulate_fills(const OrderBook_API *book, BookOrder_t order);
 
-    void orderbook_check_integrity(const OrderBook_API *book);
+    uint8_t orderbook_check_integrity(const OrderBook_API *book);
 
     void vec_fills_drop(CVec v);
 
-    # Returns a pretty printed [`OrderBook`] number of levels per side, as a C string pointer.
+    # Returns a pretty printed `OrderBook` number of levels per side, as a C string pointer.
     const char *orderbook_pprint_to_cstr(const OrderBook_API *book, uintptr_t num_levels);
 
     Level_API level_new(OrderSide order_side, Price_t price, CVec orders);

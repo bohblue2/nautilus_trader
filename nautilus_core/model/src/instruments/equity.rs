@@ -18,9 +18,11 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use anyhow::Result;
-use nautilus_core::time::UnixNanos;
-use pyo3::prelude::*;
+use nautilus_core::{
+    correctness::{check_equal_u8, check_positive_i64, check_valid_string_optional},
+    time::UnixNanos,
+};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
@@ -35,7 +37,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
 #[cfg_attr(feature = "trivial_copy", derive(Copy))]
 pub struct Equity {
@@ -46,6 +48,10 @@ pub struct Equity {
     pub currency: Currency,
     pub price_precision: u8,
     pub price_increment: Price,
+    pub maker_fee: Decimal,
+    pub taker_fee: Decimal,
+    pub margin_init: Decimal,
+    pub margin_maint: Decimal,
     pub lot_size: Option<Quantity>,
     pub max_quantity: Option<Quantity>,
     pub min_quantity: Option<Quantity>,
@@ -64,6 +70,10 @@ impl Equity {
         currency: Currency,
         price_precision: u8,
         price_increment: Price,
+        maker_fee: Option<Decimal>,
+        taker_fee: Option<Decimal>,
+        margin_init: Option<Decimal>,
+        margin_maint: Option<Decimal>,
         lot_size: Option<Quantity>,
         max_quantity: Option<Quantity>,
         min_quantity: Option<Quantity>,
@@ -71,7 +81,16 @@ impl Equity {
         min_price: Option<Price>,
         ts_event: UnixNanos,
         ts_init: UnixNanos,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
+        check_valid_string_optional(isin.map(|u| u.as_str()), stringify!(isin))?;
+        check_equal_u8(
+            price_precision,
+            price_increment.precision,
+            stringify!(price_precision),
+            stringify!(price_increment.precision),
+        )?;
+        check_positive_i64(price_increment.raw, stringify!(price_increment.raw))?;
+
         Ok(Self {
             id,
             raw_symbol,
@@ -79,6 +98,10 @@ impl Equity {
             currency,
             price_precision,
             price_increment,
+            maker_fee: maker_fee.unwrap_or(0.into()),
+            taker_fee: taker_fee.unwrap_or(0.into()),
+            margin_init: margin_init.unwrap_or(0.into()),
+            margin_maint: margin_maint.unwrap_or(0.into()),
             lot_size,
             max_quantity,
             min_quantity,

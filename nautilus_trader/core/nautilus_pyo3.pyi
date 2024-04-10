@@ -11,7 +11,6 @@ from typing import Any, TypeAlias, Union
 
 from nautilus_trader.core.data import Data
 
-
 # Python Interface typing:
 # We will eventually separate these into a .pyi file per module, for now this at least
 # provides import resolution as well as docstrings.
@@ -198,18 +197,39 @@ def convert_to_snake_case(s: str) -> str:
 
 ### Logging
 
+class LogGuard:
+    """
+    Provides a `LogGuard` which serves as a token to signal the initialization
+    of the logging system. It also ensures that the global logger is flushed
+    of any buffered records when the instance is destroyed.
+
+    """
+
 def init_tracing() -> None:
     ...
 
 def init_logging(
     trader_id: TraderId,
     instance_id: UUID4,
-    config_spec: str,
-    directory: str,
-    file_name: str,
-    file_format: str,
-) -> None:
-    ...
+    level_stdout: LogLevel,
+    level_file: LogLevel | None = None,
+    component_levels: dict[str, str] | None = None,
+    directory: str | None = None,
+    file_name: str | None = None,
+    file_format: str | None = None,
+    is_colored: bool | None = None,
+    is_bypassed: bool | None = None,
+    print_config: bool | None = None,
+) -> LogGuard: ...
+
+def log_header(
+    trader_id: TraderId,
+    machine_id: str,
+    instance_id: UUID4,
+    component: str
+) -> None: ...
+
+def log_sysinfo(component: str) -> None: ...
 
 ###################################################################################################
 # Model
@@ -339,7 +359,9 @@ class CashAccount:
         event: AccountState,
         calculate_account_state: bool
     ) -> None: ...
-
+    def to_dict(self) -> dict[str, str]: ...
+    @staticmethod
+    def from_dict(values: dict[str, str]) -> CashAccount: ...
     @property
     def id(self) -> AccountId: ...
     @property
@@ -380,6 +402,11 @@ class CashAccount:
         fill: OrderFilled,
         position: Position | None = None
     ) -> list[Money]: ...
+
+### Accounting transformers
+def cash_account_from_account_events(events: list[dict],calculate_account_state) -> CashAccount: ...
+
+def margin_account_from_account_events(events: list[dict],calculate_account_state) -> MarginAccount: ...
 
 
 ### Data types
@@ -764,6 +791,20 @@ class MovingAverageType(Enum):
     WILDER = "WILDER"
     HULL = "HULL"
 
+class LogLevel(Enum):
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+class LogColor(Enum):
+    DEFAULT = "DEFAULT"
+    GREEN = "GREEN"
+    BLUE = "BLUE"
+    MAGENTA = "MAGENTA"
+    CYAN = "CYAN"
+    YELLOW = "YELLOW"
+    RED = "RED"
 
 ### Identifiers
 
@@ -833,7 +874,87 @@ class VenueOrderId:
 
 ### Orders
 
-class LimitOrder: ...
+class LimitOrder:
+    def __init__(
+        self,
+        trader_id: TraderId,
+        strategy_id: StrategyId,
+        instrument_id: InstrumentId,
+        client_order_id: ClientOrderId,
+        order_side: OrderSide,
+        quantity: Quantity,
+        price: Price,
+        time_in_force: TimeInForce,
+        post_only: bool,
+        reduce_only: bool,
+        quote_quantity: bool,
+        init_id: UUID4,
+        ts_init: int,
+        expire_time: int | None = None,
+        display_qty: Quantity | None = None,
+        emulation_trigger: TriggerType | None = None,
+        trigger_instrument_id: InstrumentId | None = None,
+        contingency_type: ContingencyType | None = None,
+        order_list_id: OrderListId | None = None,
+        linked_order_ids: list[ClientOrderId] | None = None,
+        parent_order_id: ClientOrderId | None = None,
+        exec_algorithm_id: ExecAlgorithmId | None = None,
+        exec_algorithm_params: dict[str, str] | None = None,
+        exec_spawn_id: ClientOrderId | None = None,
+        tags: str | None = None,
+    ): ...
+    def to_dict(self) -> dict[str, str]: ...
+    @property
+    def trader_id(self) -> TraderId: ...
+    @property
+    def strategy_id(self) -> StrategyId: ...
+    @property
+    def instrument_id(self) -> InstrumentId: ...
+    @property
+    def client_order_id(self) -> ClientOrderId: ...
+    @property
+    def order_type(self) -> OrderType: ...
+    @property
+    def side(self) -> OrderSide: ...
+    @property
+    def quantity(self) -> Quantity: ...
+    @property
+    def price(self) -> Price: ...
+    @property
+    def expire_time(self) -> int | None: ...
+    @property
+    def status(self) -> OrderStatus: ...
+    @property
+    def time_in_force(self) -> TimeInForce: ...
+    @property
+    def is_post_only(self) -> bool: ...
+    @property
+    def is_reduce_only(self) -> bool: ...
+    @property
+    def is_quote_quantity(self) -> bool: ...
+    @property
+    def has_price(self) -> bool: ...
+    @property
+    def has_trigger_price(self) -> bool: ...
+    @property
+    def is_passive(self) -> bool: ...
+    @property
+    def is_aggressive(self) -> bool: ...
+    @property
+    def is_open(self) -> bool: ...
+    @property
+    def is_closed(self) -> bool: ...
+    @property
+    def is_emulated(self) -> bool: ...
+    @property
+    def is_active_local(self) -> bool: ...
+    @property
+    def is_primary(self) -> bool: ...
+    @property
+    def is_spawned(self) -> bool: ...
+    def from_dict(cls, values: dict[str, str]) -> LimitOrder: ...
+
+
 class LimitIfTouchedOrder: ...
 
 class MarketOrder:
@@ -859,6 +980,7 @@ class MarketOrder:
         exec_spawn_id: ClientOrderId | None = None,
         tags: str | None = None,
     ) -> None: ...
+    def to_dict(self) -> dict[str, str]: ...
     @staticmethod
     def opposite_side(side: OrderSide) -> OrderSide: ...
     @staticmethod
@@ -1032,6 +1154,10 @@ class CryptoFuture:
         size_precision: int,
         price_increment: Price,
         size_increment: Quantity,
+        maker_fee: Decimal,
+        taker_fee: Decimal,
+        margin_init: Decimal,
+        margin_maint: Decimal,
         ts_event: int,
         ts_init: int,
         lot_size: Quantity | None = None,
@@ -1042,6 +1168,8 @@ class CryptoFuture:
         max_price: Price | None = None,
         min_price: Price | None = None,
     ) -> None: ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> CryptoFuture: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1087,6 +1215,8 @@ class CryptoPerpetual:
         max_price: Price | None = None,
         min_price: Price | None = None,
     ) -> None: ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> CryptoPerpetual: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1128,6 +1258,8 @@ class CurrencyPair:
         max_price: Price | None = None,
         min_price: Price | None = None,
     ) -> None: ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> CurrencyPair: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1151,18 +1283,20 @@ class Equity:
         self,
         id: InstrumentId,
         raw_symbol: Symbol,
-        isin: str,
         currency: Currency,
         price_precision: int,
         price_increment: Price,
         ts_event: int,
         ts_init: int,
+        isin: str | None = None,
         lot_size: Quantity | None = None,
         max_quantity: Quantity | None = None,
         min_quantity: Quantity | None = None,
         max_price: Price | None = None,
         min_price: Price | None = None,
     ) -> None: ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> Equity: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1197,11 +1331,17 @@ class FuturesContract:
         lot_size: Quantity,
         ts_event: int,
         ts_init: int,
+        margin_init: Decimal | None = None,
+        margin_maint: Decimal | None = None,
         max_quantity: Quantity | None = None,
         min_quantity: Quantity | None = None,
         max_price: Price | None = None,
         min_price: Price | None = None,
+        exchange: str | None = None,
+        info: dict[str, Any] | None = None,
     ) -> None: ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> CryptoFuture: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1241,7 +1381,13 @@ class FuturesSpread:
         min_quantity: Quantity | None = None,
         max_price: Price | None = None,
         min_price: Price | None = None,
+        margin_init: Decimal | None = None,
+        margin_maint: Decimal | None = None,
+        exchange: str | None = None,
+        info: dict[str, Any] | None = None,
     ) -> None: ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> FuturesSpread: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1282,7 +1428,13 @@ class OptionsContract:
         min_quantity: Quantity | None = None,
         max_price: Price | None = None,
         min_price: Price | None = None,
+        margin_init: Decimal | None = None,
+        margin_maint: Decimal | None = None,
+        exchange: str | None = None,
+        info: dict[str, Any] | None = None,
     ) -> None : ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> OptionsContract: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1322,7 +1474,13 @@ class OptionsSpread:
         min_quantity: Quantity | None = None,
         max_price: Price | None = None,
         min_price: Price | None = None,
+        margin_init: Decimal | None = None,
+        margin_maint: Decimal | None = None,
+        exchange: str | None = None,
+        info: dict[str, Any] | None = None,
     ) -> None : ...
+    @classmethod
+    def from_dict(cls, values: dict[str, str]) -> OptionsContract: ...
     @property
     def id(self) -> InstrumentId: ...
     @property
@@ -1855,6 +2013,7 @@ class WebSocketConfig:
         headers: list[tuple[str, str]],
         heartbeat: int | None = None,
         heartbeat_msg: str | None = None,
+        ping_handler: Callable[..., Any] | None = None,
     ) -> None: ...
 
 class WebSocketClient:
@@ -1869,8 +2028,9 @@ class WebSocketClient:
     def disconnect(self) -> Any: ...
     @property
     def is_alive(self) -> bool: ...
-    def send_text(self, data: str) -> Awaitable[None]: ...
     def send(self, data: bytes) -> Awaitable[None]: ...
+    def send_text(self, data: str) -> Awaitable[None]: ...
+    def send_pong(self, data: bytes) -> Awaitable[None]: ...
 
 class SocketClient:
     @classmethod
@@ -2132,6 +2292,37 @@ class WilderMovingAverage:
     def handle_bar(self, bar: Bar) -> None: ...
     def reset(self) -> None: ...
 
+class VariableIndexDynamicAverage:
+    def __init__(
+        self,
+        period: int,
+        cmo_ma_type: int,
+        price_type: PriceType | None = None,
+    ) -> None: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def period(self) -> int: ...
+    @property
+    def count(self) -> int: ...
+    @property
+    def initialized(self) -> bool: ...
+    @property
+    def has_inputs(self) -> bool: ...
+    @property
+    def value(self) -> float: ...
+    @property
+    def alpha(self) -> float: ...
+    @property
+    def cmo(self) -> ChandeMomentumOscillator: ...
+    @property
+    def cmo_pct(self) -> float: ...
+    def update_raw(self, value: float) -> None: ...
+    def handle_quote_tick(self, quote: QuoteTick) -> None: ...
+    def handle_trade_tick(self, trade: TradeTick) -> None: ...
+    def handle_bar(self, bar: Bar) -> None: ...
+    def reset(self) -> None: ...
+
 class ChandeMomentumOscillator:
     def __init__(
         self,
@@ -2227,6 +2418,25 @@ class BookImbalanceRatio:
 
 # Databento
 
+class DatabentoStatisticType(Enum):
+    OPENING_PRICE = "OPENING_PRICE"
+    INDICATIVE_OPENING_PRICE = "INDICATIVE_OPENING_PRICE"
+    SETTLEMENT_PRICE = "SETTLEMENT_PRICE"
+    TRADING_SESSION_LOW_PRICE = "TRADING_SESSION_LOW_PRICE"
+    TRADING_SESSION_HIGH_PRICE = "TRADING_SESSION_HIGH_PRICE"
+    CLEARED_VOLUME = "CLEARED_VOLUME"
+    LOWEST_OFFER = "LOWEST_OFFER"
+    HIGHEST_BID = "HIGHEST_BID"
+    OPEN_INTEREST = "OPEN_INTEREST"
+    FIXING_PRICE = "FIXING_PRICE"
+    CLOSE_PRICE = "CLOSE_PRICE"
+    NET_CHANGE = "NET_CHANGE"
+    VWAP = "VWAP"
+
+class DatabentoStatisticUpdateAction(Enum):
+    ADDED = "ADDED"
+    DELETED = "DELETED"
+
 class DatabentoPublisher:
     @property
     def publisher_id(self) -> int: ...
@@ -2237,16 +2447,64 @@ class DatabentoPublisher:
     @property
     def description(self) -> str: ...
 
+class DatabentoImbalance:
+    @property
+    def instrument_id(self) -> InstrumentId: ...
+    @property
+    def ref_price(self) -> Price: ...
+    @property
+    def cont_book_clr_price(self) -> Price: ...
+    @property
+    def auct_interest_clr_price(self) -> Price: ...
+    @property
+    def paired_qty(self) -> Quantity: ...
+    @property
+    def total_imbalance_qty(self) -> Quantity: ...
+    @property
+    def side(self) -> OrderSide: ...
+    @property
+    def significant_imbalance(self) -> str: ...
+    @property
+    def ts_event(self) -> int: ...
+    @property
+    def ts_init(self) -> int: ...
+
+class DatabentoStatistics:
+    @property
+    def instrument_id(self) -> InstrumentId: ...
+    @property
+    def stat_type(self) -> DatabentoStatisticType: ...
+    @property
+    def update_action(self) -> DatabentoStatisticUpdateAction: ...
+    @property
+    def price(self) -> Price | None: ...
+    @property
+    def quantity(self) -> Quantity | None: ...
+    @property
+    def channel_id(self) -> int: ...
+    @property
+    def stat_flags(self) -> int: ...
+    @property
+    def sequence(self) -> int: ...
+    @property
+    def ts_ref(self) -> int: ...
+    @property
+    def ts_in_delta(self) -> int: ...
+    @property
+    def ts_event(self) -> int: ...
+    @property
+    def ts_recv(self) -> int: ...
+    @property
+    def ts_init(self) -> int: ...
+
 class DatabentoDataLoader:
     def __init__(
         self,
         path: PathLike[str] | str,
     ) -> None: ...
     def load_publishers(self, path: PathLike[str] | str) -> None: ...
-    def load_glbx_exchange_map(self, map: dict[Symbol, Venue]) -> None: ...
     def get_publishers(self) -> dict[int, DatabentoPublisher]: ...
     def get_dataset_for_venue(self, venue: Venue) -> str: ...
-    def get_glbx_exchange_map(self) -> dict[Symbol, Venue]: ...
     def schema_for_file(self, path: str) -> str: ...
     def load_instruments(self, path: str) -> list[Instrument]: ...
     def load_order_book_deltas(self, path: str, instrument_id: InstrumentId | None, include_trades: bool | None) -> list[OrderBookDelta]: ...
@@ -2259,6 +2517,8 @@ class DatabentoDataLoader:
     def load_trades_as_pycapsule(self, path: str, instrument_id: InstrumentId | None) -> object: ...
     def load_bars(self, path: str, instrument_id: InstrumentId | None) -> list[Bar]: ...
     def load_bars_as_pycapsule(self, path: str, instrument_id: InstrumentId | None) -> object: ...
+    def load_imbalance(self, path: str, instrument_id: InstrumentId | None) -> list[DatabentoImbalance]: ...
+    def load_statistics(self, path: str, instrument_id: InstrumentId | None) -> list[DatabentoStatistics]: ...
 
 class DatabentoHistoricalClient:
     def __init__(
@@ -2268,13 +2528,11 @@ class DatabentoHistoricalClient:
     ) -> None: ...
     @property
     def key(self) -> str: ...
-    def load_glbx_exchange_map(self, map: dict[Symbol, Venue]) -> None: ...
-    def get_glbx_exchange_map(self) -> dict[Symbol, Venue]: ...
     async def get_dataset_range(self, dataset: str) -> dict[str, str]: ...
     async def get_range_instruments(
         self,
         dataset: str,
-        symbols: str,
+        symbols: list[str],
         start: int,
         end: int | None = None,
         limit: int | None = None,
@@ -2282,7 +2540,7 @@ class DatabentoHistoricalClient:
     async def get_range_quotes(
         self,
         dataset: str,
-        symbols: str,
+        symbols: list[str],
         start: int,
         end: int | None = None,
         limit: int | None = None,
@@ -2290,7 +2548,7 @@ class DatabentoHistoricalClient:
     async def get_range_trades(
         self,
         dataset: str,
-        symbols: str,
+        symbols: list[str],
         start: int,
         end: int | None = None,
         limit: int | None = None,
@@ -2298,12 +2556,28 @@ class DatabentoHistoricalClient:
     async def get_range_bars(
         self,
         dataset: str,
-        symbols: str,
+        symbols: list[str],
         aggregation: BarAggregation,
         start: int,
         end: int | None = None,
         limit: int | None = None,
     ) -> list[Bar]: ...
+    async def get_range_imbalance(
+        self,
+        dataset: str,
+        symbols: list[str],
+        start: int,
+        end: int | None = None,
+        limit: int | None = None,
+    ) -> list[DatabentoImbalance]: ...
+    async def get_range_statistics(
+        self,
+        dataset: str,
+        symbols: list[str],
+        start: int,
+        end: int | None = None,
+        limit: int | None = None,
+    ) -> list[DatabentoStatistics]: ...
 
 class DatabentoLiveClient:
     def __init__(
@@ -2316,18 +2590,20 @@ class DatabentoLiveClient:
     def key(self) -> str: ...
     @property
     def dataset(self) -> str: ...
-    def load_glbx_exchange_map(self, map: dict[Symbol, Venue]) -> None: ...
-    def get_glbx_exchange_map(self) -> dict[Symbol, Venue]: ...
-    async def subscribe(
+    @property
+    def is_running(self) -> bool: ...
+    @property
+    def is_closed(self) -> bool: ...
+    def subscribe(
         self,
         schema: str,
-        symbols: str,
+        symbols: list[str],
         stype_in: str | None = None,
         start: int | None = None,
     ) -> dict[str, str]: ...
-    async def start(
+    def start(
         self,
         callback: Callable,
-        replay: bool,
-    ) -> dict[str, str]: ...
-    async def close(self) -> None: ...
+        callback_pyo3: Callable,
+    ) -> Awaitable[None]: ...
+    def close(self) -> None: ...

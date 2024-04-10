@@ -247,8 +247,11 @@ class DatabaseConfig(NautilusConfig, frozen=True):
         The account username for the database connection.
     password : str, optional
         The account password for the database connection.
+        If a value is provided then it will be redacted in the string repr for this object.
     ssl : bool, default False
         If database should use an SSL enabled connection.
+    timeout : int, default 20
+        The timeout (seconds) to wait for a new connection.
 
     Notes
     -----
@@ -262,6 +265,25 @@ class DatabaseConfig(NautilusConfig, frozen=True):
     username: str | None = None
     password: str | None = None
     ssl: bool = False
+    timeout: int | None = 20
+
+    def __repr__(self) -> str:
+        redacted_password = "None"
+        if self.password:
+            if len(self.password) >= 4:
+                redacted_password = f"{self.password[:2]}...{self.password[-2:]}"
+            else:
+                redacted_password = self.password
+        return (
+            f"{type(self).__name__}("
+            f"type={self.type}, "
+            f"host={self.host}, "
+            f"port={self.port}, "
+            f"username={self.username}, "
+            f"password={redacted_password}, "
+            f"ssl={self.ssl}, "
+            f"timeout={self.timeout})"
+        )
 
 
 class MessageBusConfig(NautilusConfig, frozen=True):
@@ -463,6 +485,10 @@ class LoggingConfig(NautilusConfig, frozen=True):
         If all logging should be bypassed.
     print_config : bool, default False
         If the core logging configuration should be printed to stdout at initialization.
+    use_pyo3: bool, default False
+        If the logging system should be initialized via pyo3,
+        this isn't recommended for backtesting as the performance is much lower
+        but can be useful for seeing logs originating from Rust.
 
     """
 
@@ -475,6 +501,7 @@ class LoggingConfig(NautilusConfig, frozen=True):
     log_component_levels: dict[str, str] | None = None
     bypass_logging: bool = False
     print_config: bool = False
+    use_pyo3: bool = False
 
 
 class ImportableFactoryConfig(NautilusConfig, frozen=True):

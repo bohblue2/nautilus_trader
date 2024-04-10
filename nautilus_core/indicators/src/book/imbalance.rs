@@ -15,18 +15,19 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
 use nautilus_model::{
     orderbook::{book_mbo::OrderBookMbo, book_mbp::OrderBookMbp},
     types::quantity::Quantity,
 };
-use pyo3::prelude::*;
 
 use crate::indicator::Indicator;
 
 #[repr(C)]
 #[derive(Debug)]
-#[pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")
+)]
 pub struct BookImbalanceRatio {
     pub value: f64,
     pub count: usize,
@@ -70,7 +71,7 @@ impl Indicator for BookImbalanceRatio {
 }
 
 impl BookImbalanceRatio {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> anyhow::Result<Self> {
         // Inputs don't require validation, however we return a `Result`
         // to standardize with other indicators which do need validation.
         Ok(Self {

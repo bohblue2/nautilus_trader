@@ -15,9 +15,7 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
 use nautilus_model::data::{bar::Bar, quote::QuoteTick, trade::TradeTick};
-use pyo3::prelude::*;
 
 use crate::{
     average::{MovingAverageFactory, MovingAverageType},
@@ -26,7 +24,10 @@ use crate::{
 
 #[repr(C)]
 #[derive(Debug)]
-#[pyclass(module = "nautilus_trader.core.nautilus.pyo3.indicators")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.indicators")
+)]
 pub struct ChandeMomentumOscillator {
     pub period: usize,
     pub ma_type: MovingAverageType,
@@ -80,7 +81,7 @@ impl Indicator for ChandeMomentumOscillator {
 }
 
 impl ChandeMomentumOscillator {
-    pub fn new(period: usize, ma_type: Option<MovingAverageType>) -> Result<Self> {
+    pub fn new(period: usize, ma_type: Option<MovingAverageType>) -> anyhow::Result<Self> {
         Ok(Self {
             period,
             ma_type: ma_type.unwrap_or(MovingAverageType::Wilder),
@@ -117,8 +118,13 @@ impl ChandeMomentumOscillator {
             self.initialized = true;
         }
         if self.initialized {
-            self.value = 100.0 * (self._average_gain.value() - self._average_loss.value())
-                / (self._average_gain.value() + self._average_loss.value());
+            let divisor = self._average_gain.value() + self._average_loss.value();
+            if divisor == 0.0 {
+                self.value = 0.0;
+            } else {
+                self.value =
+                    100.0 * (self._average_gain.value() - self._average_loss.value()) / divisor;
+            }
         }
         self._previous_close = close;
     }

@@ -168,6 +168,7 @@ class TestInstrument:
             "quote_currency": "USD",
             "settlement_currency": "BTC",
             "is_inverse": True,
+            "lot_size": "1",
             "price_precision": 1,
             "price_increment": "0.5",
             "size_precision": 0,
@@ -206,6 +207,7 @@ class TestInstrument:
             "price_increment": "0.01",
             "size_precision": 6,
             "size_increment": "0.000001",
+            "lot_size": "1",
             "max_quantity": "9000.000000",
             "min_quantity": "0.000001",
             "max_notional": None,
@@ -235,6 +237,10 @@ class TestInstrument:
             "price_precision": 2,
             "price_increment": "0.01",
             "lot_size": "100",
+            "max_price": None,
+            "max_quantity": None,
+            "min_price": None,
+            "min_quantity": None,
             "isin": "US0378331005",
             "margin_init": "0",
             "margin_maint": "0",
@@ -255,10 +261,15 @@ class TestInstrument:
             "id": "ESZ3.GLBX",
             "raw_symbol": "ESZ3",
             "asset_class": "INDEX",
+            "exchange": "XCME",
             "underlying": "ES",
             "currency": "USD",
             "activation_ns": 1622842200000000000,
             "expiration_ns": 1702650600000000000,
+            "max_price": None,
+            "max_quantity": None,
+            "min_price": None,
+            "min_quantity": "1",
             "lot_size": "1",
             "margin_init": "0",
             "margin_maint": "0",
@@ -269,6 +280,7 @@ class TestInstrument:
             "size_precision": 0,
             "ts_event": 1622842200000000000,
             "ts_init": 1622842200000000000,
+            "info": None,
         }
 
     def test_option_instrument_to_dict(self):
@@ -282,11 +294,17 @@ class TestInstrument:
             "id": "AAPL211217C00150000.OPRA",
             "raw_symbol": "AAPL211217C00150000",
             "asset_class": "EQUITY",
+            "exchange": "GMNI",
+            "underlying": "AAPL",
             "currency": "USD",
             "activation_ns": 1631836800000000000,
             "expiration_ns": 1639699200000000000,
             "option_kind": "CALL",
             "lot_size": "1",
+            "max_price": None,
+            "max_quantity": None,
+            "min_price": None,
+            "min_quantity": "1",
             "margin_init": "0",
             "margin_maint": "0",
             "multiplier": "100",
@@ -297,7 +315,7 @@ class TestInstrument:
             "strike_price": "149.00",
             "ts_event": 0,
             "ts_init": 0,
-            "underlying": "AAPL",
+            "info": None,
         }
 
     @pytest.mark.parametrize(
@@ -473,7 +491,7 @@ def test_pyo3_future_to_legacy_future() -> None:
 
     # Assert
     assert isinstance(instrument, FuturesContract)
-    assert instrument.id == InstrumentId.from_str("ESZ1.XCME")
+    assert instrument.id == InstrumentId.from_str("ESZ1.GLBX")
 
 
 def test_pyo3_option_to_legacy_option() -> None:
