@@ -19,17 +19,20 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use nautilus_core::{time::UnixNanos, uuid::UUID4};
+use nautilus_core::{nanos::UnixNanos, uuid::UUID4};
 use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
-use super::base::{Order, OrderCore};
+use super::{
+    any::OrderAny,
+    base::{Order, OrderCore},
+};
 use crate::{
     enums::{
         ContingencyType, LiquiditySide, OrderSide, OrderStatus, OrderType, TimeInForce,
         TrailingOffsetType, TriggerType,
     },
-    events::order::{event::OrderEvent, initialized::OrderInitialized, updated::OrderUpdated},
+    events::order::{event::OrderEventAny, initialized::OrderInitialized, updated::OrderUpdated},
     identifiers::{
         account_id::AccountId, client_order_id::ClientOrderId, exec_algorithm_id::ExecAlgorithmId,
         instrument_id::InstrumentId, order_list_id::OrderListId, position_id::PositionId,
@@ -73,37 +76,51 @@ impl MarketOrder {
         exec_algorithm_id: Option<ExecAlgorithmId>,
         exec_algorithm_params: Option<HashMap<Ustr, Ustr>>,
         exec_spawn_id: Option<ClientOrderId>,
-        tags: Option<Ustr>,
+        tags: Option<Vec<Ustr>>,
     ) -> anyhow::Result<Self> {
         check_quantity_positive(quantity)?;
         if time_in_force == TimeInForce::Gtd {
-            anyhow::bail!("{}", "GTD not supported for Market orders");
+            anyhow::bail!("GTD not supported for Market orders");
         }
+        let init_order = OrderInitialized::new(
+            trader_id,
+            strategy_id,
+            instrument_id,
+            client_order_id,
+            order_side,
+            OrderType::Market,
+            quantity,
+            time_in_force,
+            false,
+            reduce_only,
+            quote_quantity,
+            false,
+            init_id,
+            ts_init,
+            ts_init,
+            None,
+            None,
+            Some(TriggerType::NoTrigger),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            contingency_type,
+            order_list_id,
+            linked_order_ids,
+            parent_order_id,
+            exec_algorithm_id,
+            exec_algorithm_params,
+            exec_spawn_id,
+            tags,
+        )
+        .unwrap();
 
         Ok(Self {
-            core: OrderCore::new(
-                trader_id,
-                strategy_id,
-                instrument_id,
-                client_order_id,
-                order_side,
-                OrderType::Market,
-                quantity,
-                time_in_force,
-                reduce_only,
-                quote_quantity,
-                None, // Emulation trigger
-                contingency_type,
-                order_list_id,
-                linked_order_ids,
-                parent_order_id,
-                exec_algorithm_id,
-                exec_algorithm_params,
-                exec_spawn_id,
-                tags,
-                init_id,
-                ts_init,
-            ),
+            core: OrderCore::new(init_order).unwrap(),
         })
     }
 }
@@ -129,6 +146,10 @@ impl PartialEq for MarketOrder {
 }
 
 impl Order for MarketOrder {
+    fn into_any(self) -> OrderAny {
+        OrderAny::Market(self)
+    }
+
     fn status(&self) -> OrderStatus {
         self.status
     }
@@ -253,8 +274,8 @@ impl Order for MarketOrder {
         self.order_list_id
     }
 
-    fn linked_order_ids(&self) -> Option<Vec<ClientOrderId>> {
-        self.linked_order_ids.clone()
+    fn linked_order_ids(&self) -> Option<&[ClientOrderId]> {
+        self.linked_order_ids.as_deref()
     }
 
     fn parent_order_id(&self) -> Option<ClientOrderId> {
@@ -265,16 +286,16 @@ impl Order for MarketOrder {
         self.exec_algorithm_id
     }
 
-    fn exec_algorithm_params(&self) -> Option<HashMap<Ustr, Ustr>> {
-        self.exec_algorithm_params.clone()
+    fn exec_algorithm_params(&self) -> Option<&HashMap<Ustr, Ustr>> {
+        self.exec_algorithm_params.as_ref()
     }
 
     fn exec_spawn_id(&self) -> Option<ClientOrderId> {
         self.exec_spawn_id
     }
 
-    fn tags(&self) -> Option<Ustr> {
-        self.tags
+    fn tags(&self) -> Option<&[Ustr]> {
+        self.tags.as_deref()
     }
 
     fn filled_qty(&self) -> Quantity {
@@ -305,20 +326,8 @@ impl Order for MarketOrder {
         self.ts_last
     }
 
-    fn events(&self) -> Vec<&OrderEvent> {
-        self.events.iter().collect()
-    }
-
-    fn venue_order_ids(&self) -> Vec<&VenueOrderId> {
-        self.venue_order_ids.iter().collect()
-    }
-
-    fn trade_ids(&self) -> Vec<&TradeId> {
-        self.trade_ids.iter().collect()
-    }
-
-    fn apply(&mut self, event: OrderEvent) -> Result<(), OrderError> {
-        if let OrderEvent::OrderUpdated(ref event) = event {
+    fn apply(&mut self, event: OrderEventAny) -> Result<(), OrderError> {
+        if let OrderEventAny::Updated(ref event) = event {
             self.update(event);
         };
 
@@ -337,6 +346,18 @@ impl Order for MarketOrder {
 
         self.quantity = event.quantity;
         self.leaves_qty = self.quantity - self.filled_qty;
+    }
+
+    fn events(&self) -> Vec<&OrderEventAny> {
+        self.events.iter().collect()
+    }
+
+    fn venue_order_ids(&self) -> Vec<&VenueOrderId> {
+        self.venue_order_ids.iter().collect()
+    }
+
+    fn trade_ids(&self) -> Vec<&TradeId> {
+        self.trade_ids.iter().collect()
     }
 }
 

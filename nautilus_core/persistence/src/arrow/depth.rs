@@ -175,8 +175,8 @@ impl EncodeToRecordBatch for OrderBookDepth10 {
 
             flags_builder.append_value(depth.flags);
             sequence_builder.append_value(depth.sequence);
-            ts_event_builder.append_value(depth.ts_event);
-            ts_init_builder.append_value(depth.ts_init);
+            ts_event_builder.append_value(depth.ts_event.as_u64());
+            ts_init_builder.append_value(depth.ts_init.as_u64());
         }
 
         let bid_price_arrays = bid_price_builders
@@ -399,8 +399,8 @@ impl DecodeFromRecordBatch for OrderBookDepth10 {
                     ask_counts: ask_count_arr,
                     flags: flags.value(i),
                     sequence: sequence.value(i),
-                    ts_event: ts_event.value(i),
-                    ts_init: ts_init.value(i),
+                    ts_event: ts_event.value(i).into(),
+                    ts_init: ts_init.value(i).into(),
                 })
             })
             .collect();
@@ -426,7 +426,7 @@ impl DecodeDataFromRecordBatch for OrderBookDepth10 {
 mod tests {
 
     use datafusion::arrow::datatypes::{DataType, Field, Schema};
-    use nautilus_model::data::depth::stubs::stub_depth10;
+    use nautilus_model::data::stubs::stub_depth10;
     use rstest::rstest;
 
     use super::*;

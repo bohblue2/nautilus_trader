@@ -51,20 +51,18 @@ class EMACrossConfig(StrategyConfig, frozen=True):
         The instrument ID for the strategy.
     bar_type : BarType
         The bar type for the strategy.
-    trade_size : str
-        The position size per trade (interpreted as Decimal).
+    trade_size : Decimal
+        The position size per trade.
     fast_ema_period : int, default 10
         The fast EMA period.
     slow_ema_period : int, default 20
         The slow EMA period.
+    subscribe_trade_ticks : bool, default True
+        If trade ticks should be subscribed to.
+    subscribe_quote_ticks : bool, default False
+        If quote ticks should be subscribed to.
     close_positions_on_stop : bool, default True
         If all open positions should be closed on strategy stop.
-    order_id_tag : str
-        The unique order ID tag for the strategy. Must be unique
-        amongst all running strategies for a particular trader ID.
-    oms_type : OmsType
-        The order management system type for the strategy. This will determine
-        how the `ExecutionEngine` handles position IDs (see docs).
 
     """
 
@@ -73,6 +71,8 @@ class EMACrossConfig(StrategyConfig, frozen=True):
     trade_size: Decimal
     fast_ema_period: PositiveInt = 10
     slow_ema_period: PositiveInt = 20
+    subscribe_trade_ticks: bool = True
+    subscribe_quote_ticks: bool = False
     close_positions_on_stop: bool = True
 
 
@@ -82,8 +82,6 @@ class EMACross(Strategy):
 
     When the fast EMA crosses the slow EMA then enter a position at the market
     in that direction.
-
-    Cancels all orders and closes all positions on stop.
 
     Parameters
     ----------
@@ -137,8 +135,12 @@ class EMACross(Strategy):
 
         # Subscribe to live data
         self.subscribe_bars(self.bar_type)
-        self.subscribe_quote_ticks(self.instrument_id)
-        # self.subscribe_trade_ticks(self.instrument_id)
+
+        if self.config.subscribe_quote_ticks:
+            self.subscribe_quote_ticks(self.instrument_id)
+        if self.config.subscribe_trade_ticks:
+            self.subscribe_trade_ticks(self.instrument_id)
+
         # self.subscribe_ticker(self.instrument_id)  # For debugging
         # self.subscribe_order_book_deltas(self.instrument_id, depth=20)  # For debugging
         # self.subscribe_order_book_snapshots(self.instrument_id, depth=20)  # For debugging
@@ -194,7 +196,7 @@ class EMACross(Strategy):
 
         """
         # For debugging (must add a subscription)
-        # self.log.info(repr(tick), LogColor.CYAN)
+        self.log.info(repr(tick), LogColor.CYAN)
 
     def on_trade_tick(self, tick: TradeTick) -> None:
         """
@@ -207,7 +209,7 @@ class EMACross(Strategy):
 
         """
         # For debugging (must add a subscription)
-        # self.log.info(repr(tick), LogColor.CYAN)
+        self.log.info(repr(tick), LogColor.CYAN)
 
     def on_bar(self, bar: Bar) -> None:
         """
@@ -224,7 +226,7 @@ class EMACross(Strategy):
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
-                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]...",
+                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]",
                 color=LogColor.BLUE,
             )
             return  # Wait for indicators to warm up...
@@ -307,7 +309,7 @@ class EMACross(Strategy):
         # Unsubscribe from data
         self.unsubscribe_bars(self.bar_type)
         # self.unsubscribe_quote_ticks(self.instrument_id)
-        # self.unsubscribe_trade_ticks(self.instrument_id)
+        self.unsubscribe_trade_ticks(self.instrument_id)
         # self.unsubscribe_ticker(self.instrument_id)
         # self.unsubscribe_order_book_deltas(self.instrument_id)
         # self.unsubscribe_order_book_snapshots(self.instrument_id)

@@ -17,11 +17,9 @@ use std::str::FromStr;
 
 use nautilus_core::{
     python::{serialization::from_dict_pyo3, to_pyvalue_err},
-    time::UnixNanos,
     uuid::UUID4,
 };
 use pyo3::{basic::CompareOp, prelude::*, types::PyDict};
-use rust_decimal::prelude::ToPrimitive;
 use ustr::Ustr;
 
 use crate::{
@@ -43,8 +41,8 @@ impl OrderRejected {
         account_id: AccountId,
         reason: &str,
         event_id: UUID4,
-        ts_event: UnixNanos,
-        ts_init: UnixNanos,
+        ts_event: u64,
+        ts_init: u64,
         reconciliation: bool,
     ) -> PyResult<Self> {
         let reason = Ustr::from_str(reason).unwrap();
@@ -56,8 +54,8 @@ impl OrderRejected {
             account_id,
             reason,
             event_id,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
             reconciliation,
         )
         .map_err(to_pyvalue_err)
@@ -72,31 +70,15 @@ impl OrderRejected {
     }
 
     fn __repr__(&self) -> String {
-        format!(
-            "{}(trader_id={}, strategy_id={}, instrument_id={}, client_order_id={}, account_id={}, reason={}, event_id={}, ts_event={}, ts_init={})",
-            stringify!(OrderRejected),
-            self.trader_id,
-            self.strategy_id,
-            self.instrument_id,
-            self.client_order_id,
-            self.account_id,
-            self.reason,
-            self.event_id,
-            self.ts_event,
-            self.ts_init
-        )
+        format!("{:?}", self)
     }
 
     fn __str__(&self) -> String {
-        format!(
-            "{}(instrument_id={}, client_order_id={}, account_id={}, reason={}, ts_event={})",
-            stringify!(OrderRejected),
-            self.instrument_id,
-            self.client_order_id,
-            self.account_id,
-            self.reason,
-            self.ts_event,
-        )
+        self.to_string()
+    }
+
+    fn type_str(&self) -> &str {
+        stringify!(OrderRejected)
     }
 
     #[staticmethod]
@@ -108,6 +90,7 @@ impl OrderRejected {
     #[pyo3(name = "to_dict")]
     fn py_to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
+        dict.set_item("type", stringify!(OrderRejected));
         dict.set_item("trader_id", self.trader_id.to_string())?;
         dict.set_item("strategy_id", self.strategy_id.to_string())?;
         dict.set_item("instrument_id", self.instrument_id.to_string())?;
@@ -115,8 +98,8 @@ impl OrderRejected {
         dict.set_item("account_id", self.account_id.to_string())?;
         dict.set_item("reason", self.reason.to_string())?;
         dict.set_item("event_id", self.event_id.to_string())?;
-        dict.set_item("ts_event", self.ts_event.to_u64())?;
-        dict.set_item("ts_init", self.ts_init.to_u64())?;
+        dict.set_item("ts_event", self.ts_event.as_u64())?;
+        dict.set_item("ts_init", self.ts_init.as_u64())?;
         dict.set_item("reconciliation", self.reconciliation)?;
         Ok(dict.into())
     }

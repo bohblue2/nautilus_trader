@@ -106,7 +106,7 @@ class TradingNodeBuilder:
         PyCondition.not_in(name, self._data_factories, "name", "_data_factories")
 
         if not issubclass(factory, LiveDataClientFactory):
-            self._log.error(f"Factory was not of type `LiveDataClientFactory`, was {factory}.")
+            self._log.error(f"Factory was not of type `LiveDataClientFactory`, was {factory}")
             return
 
         self._data_factories[name] = factory
@@ -135,7 +135,7 @@ class TradingNodeBuilder:
         PyCondition.not_in(name, self._exec_factories, "name", "_exec_factories")
 
         if not issubclass(factory, LiveExecClientFactory):
-            self._log.error(f"Factory was not of type `LiveExecClientFactory`, was {factory}.")
+            self._log.error(f"Factory was not of type `LiveExecClientFactory`, was {factory}")
             return
 
         self._exec_factories[name] = factory
@@ -156,11 +156,11 @@ class TradingNodeBuilder:
         PyCondition.not_none(config, "config")
 
         if not config:
-            self._log.warning("No `data_clients` configuration found.")
+            self._log.warning("No `data_clients` configuration found")
 
         for parts, cfg in config.items():
             name = parts.partition("-")[0]
-            self._log.info(f"Building data client for {name}.")
+            self._log.info(f"Building data client for {name}")
 
             if isinstance(cfg, ImportableConfig):
                 if name not in self._data_factories and cfg.factory is not None:
@@ -170,7 +170,7 @@ class TradingNodeBuilder:
                 client_config: LiveDataClientConfig = cfg  # type: ignore
 
             if name not in self._data_factories:
-                self._log.error(f"No `LiveDataClientFactory` registered for {name}.")
+                self._log.error(f"No `LiveDataClientFactory` registered for {name}")
                 continue
 
             factory = self._data_factories[name]
@@ -197,10 +197,6 @@ class TradingNodeBuilder:
                     venue = Venue(venue)
                 self._data_engine.register_venue_routing(client, venue)
 
-            # Temporary handling for setting specific 'venue' for portfolio
-            if name == "InteractiveBrokers":
-                self._portfolio.set_specific_venue(Venue("InteractiveBrokers"))
-
     def build_exec_clients(  # noqa: C901 (too complex)
         self,
         config: dict[str, LiveExecClientConfig],
@@ -217,11 +213,11 @@ class TradingNodeBuilder:
         PyCondition.not_none(config, "config")
 
         if not config:
-            self._log.warning("No `exec_clients` configuration found.")
+            self._log.warning("No `exec_clients` configuration found")
 
         for parts, cfg in config.items():
             name = parts.partition("-")[0]
-            self._log.info(f"Building execution client for {name}.")
+            self._log.info(f"Building execution client for {name}")
 
             if isinstance(cfg, ImportableConfig):
                 if name not in self._exec_factories and cfg.factory is not None:
@@ -231,7 +227,7 @@ class TradingNodeBuilder:
                 client_config: LiveExecClientConfig = cfg  # type: ignore
 
             if name not in self._exec_factories:
-                self._log.error(f"No `LiveExecClientFactory` registered for {name}.")
+                self._log.error(f"No `LiveExecClientFactory` registered for {name}")
                 continue
 
             factory = self._exec_factories[name]
@@ -264,5 +260,5 @@ class TradingNodeBuilder:
                 self._exec_engine.register_venue_routing(client, venue)
 
             # Temporary handling for setting specific 'venue' for portfolio
-            if name == "InteractiveBrokers":
-                self._portfolio.set_specific_venue(Venue("InteractiveBrokers"))
+            if factory.__name__ == "InteractiveBrokersLiveExecClientFactory":
+                self._portfolio.set_specific_venue(Venue("INTERACTIVE_BROKERS"))

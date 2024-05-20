@@ -13,24 +13,21 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{
-    any::Any,
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
 
 use nautilus_core::{
     correctness::{check_equal_u8, check_positive_i64, check_valid_string_optional},
-    time::UnixNanos,
+    nanos::UnixNanos,
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
-use super::Instrument;
+use super::{any::InstrumentAny, Instrument};
 use crate::{
-    enums::{AssetClass, InstrumentClass},
+    enums::{AssetClass, InstrumentClass, OptionKind},
     identifiers::{instrument_id::InstrumentId, symbol::Symbol},
-    types::{currency::Currency, price::Price, quantity::Quantity},
+    types::{currency::Currency, money::Money, price::Price, quantity::Quantity},
 };
 
 #[repr(C)]
@@ -128,6 +125,10 @@ impl Hash for Equity {
 }
 
 impl Instrument for Equity {
+    fn into_any(self) -> InstrumentAny {
+        InstrumentAny::Equity(self)
+    }
+
     fn id(&self) -> InstrumentId {
         self.id
     }
@@ -143,17 +144,44 @@ impl Instrument for Equity {
     fn instrument_class(&self) -> InstrumentClass {
         InstrumentClass::Spot
     }
-
-    fn quote_currency(&self) -> Currency {
-        self.currency
+    fn underlying(&self) -> Option<Ustr> {
+        None
     }
 
     fn base_currency(&self) -> Option<Currency> {
         None
     }
 
+    fn quote_currency(&self) -> Currency {
+        self.currency
+    }
+
     fn settlement_currency(&self) -> Currency {
         self.currency
+    }
+
+    fn isin(&self) -> Option<Ustr> {
+        self.isin
+    }
+
+    fn option_kind(&self) -> Option<OptionKind> {
+        None
+    }
+
+    fn exchange(&self) -> Option<Ustr> {
+        None
+    }
+
+    fn strike_price(&self) -> Option<Price> {
+        None
+    }
+
+    fn activation_ns(&self) -> Option<UnixNanos> {
+        None
+    }
+
+    fn expiration_ns(&self) -> Option<UnixNanos> {
+        None
     }
 
     fn is_inverse(&self) -> bool {
@@ -192,6 +220,14 @@ impl Instrument for Equity {
         self.min_quantity
     }
 
+    fn max_notional(&self) -> Option<Money> {
+        None
+    }
+
+    fn min_notional(&self) -> Option<Money> {
+        None
+    }
+
     fn max_price(&self) -> Option<Price> {
         self.max_price
     }
@@ -206,10 +242,6 @@ impl Instrument for Equity {
 
     fn ts_init(&self) -> UnixNanos {
         self.ts_init
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 

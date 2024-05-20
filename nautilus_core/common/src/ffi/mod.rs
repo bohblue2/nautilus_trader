@@ -13,8 +13,9 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Provides a C foreign function interface (FFI) from `cbindgen`.
+
 pub mod clock;
 pub mod enums;
 pub mod logging;
-pub mod msgbus;
 pub mod timer;

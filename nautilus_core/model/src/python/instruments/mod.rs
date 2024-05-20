@@ -13,6 +13,18 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Defines instrument definitions the trading domain model.
+
+use nautilus_core::python::to_pyvalue_err;
+use pyo3::{IntoPy, PyObject, PyResult, Python};
+
+use crate::instruments::{
+    any::InstrumentAny, crypto_future::CryptoFuture, crypto_perpetual::CryptoPerpetual,
+    currency_pair::CurrencyPair, equity::Equity, futures_contract::FuturesContract,
+    futures_spread::FuturesSpread, options_contract::OptionsContract,
+    options_spread::OptionsSpread,
+};
+
 pub mod crypto_future;
 pub mod crypto_perpetual;
 pub mod currency_pair;
@@ -21,3 +33,47 @@ pub mod futures_contract;
 pub mod futures_spread;
 pub mod options_contract;
 pub mod options_spread;
+
+pub fn instrument_any_to_pyobject(py: Python, instrument: InstrumentAny) -> PyResult<PyObject> {
+    match instrument {
+        InstrumentAny::CryptoFuture(inst) => Ok(inst.into_py(py)),
+        InstrumentAny::CryptoPerpetual(inst) => Ok(inst.into_py(py)),
+        InstrumentAny::CurrencyPair(inst) => Ok(inst.into_py(py)),
+        InstrumentAny::Equity(inst) => Ok(inst.into_py(py)),
+        InstrumentAny::FuturesContract(inst) => Ok(inst.into_py(py)),
+        InstrumentAny::FuturesSpread(inst) => Ok(inst.into_py(py)),
+        InstrumentAny::OptionsContract(inst) => Ok(inst.into_py(py)),
+        InstrumentAny::OptionsSpread(inst) => Ok(inst.into_py(py)),
+        _ => Err(to_pyvalue_err("Unsupported instrument type")),
+    }
+}
+
+pub fn pyobject_to_instrument_any(py: Python, instrument: PyObject) -> PyResult<InstrumentAny> {
+    match instrument.getattr(py, "type_str")?.extract::<&str>(py)? {
+        stringify!(CryptoFuture) => Ok(InstrumentAny::CryptoFuture(
+            instrument.extract::<CryptoFuture>(py)?,
+        )),
+        stringify!(CryptoPerpetual) => Ok(InstrumentAny::CryptoPerpetual(
+            instrument.extract::<CryptoPerpetual>(py)?,
+        )),
+        stringify!(CurrencyPair) => Ok(InstrumentAny::CurrencyPair(
+            instrument.extract::<CurrencyPair>(py)?,
+        )),
+        stringify!(Equity) => Ok(InstrumentAny::Equity(instrument.extract::<Equity>(py)?)),
+        stringify!(FuturesContract) => Ok(InstrumentAny::FuturesContract(
+            instrument.extract::<FuturesContract>(py)?,
+        )),
+        stringify!(FuturesSpread) => Ok(InstrumentAny::FuturesSpread(
+            instrument.extract::<FuturesSpread>(py)?,
+        )),
+        stringify!(OptionsContract) => Ok(InstrumentAny::OptionsContract(
+            instrument.extract::<OptionsContract>(py)?,
+        )),
+        stringify!(OptionsSpread) => Ok(InstrumentAny::OptionsSpread(
+            instrument.extract::<OptionsSpread>(py)?,
+        )),
+        _ => Err(to_pyvalue_err(
+            "Error in conversion from `PyObject` to `InstrumentAny`",
+        )),
+    }
+}

@@ -69,7 +69,7 @@ class TestConfigStubs:
 
     @staticmethod
     def exec_engine_config() -> ExecEngineConfig:
-        return ExecEngineConfig(allow_cash_positions=True, debug=True)
+        return ExecEngineConfig(debug=True)
 
     @staticmethod
     def risk_engine_config() -> RiskEngineConfig:
@@ -95,19 +95,18 @@ class TestConfigStubs:
 
     @staticmethod
     def backtest_engine_config(
+        catalog: ParquetDataCatalog,
         log_level="INFO",
         bypass_logging: bool = True,
         bypass_risk: bool = False,
-        allow_cash_position: bool = True,
         persist: bool = False,
-        catalog: ParquetDataCatalog | None = None,
         strategies: list[ImportableStrategyConfig] | None = None,
     ) -> BacktestEngineConfig:
         if persist:
             assert catalog is not None, "If `persist=True`, must pass `catalog`"
         return BacktestEngineConfig(
             logging=LoggingConfig(log_level=log_level, bypass_logging=bypass_logging),
-            exec_engine=ExecEngineConfig(allow_cash_positions=allow_cash_position),
+            exec_engine=ExecEngineConfig(),
             risk_engine=RiskEngineConfig(bypass=bypass_risk),
             streaming=TestConfigStubs.streaming_config(catalog=catalog) if persist else None,
             strategies=strategies or [],

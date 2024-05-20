@@ -13,6 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Defines identifiers the trading domain model.
+
 use std::str::FromStr;
 
 use nautilus_core::python::to_pyvalue_err;
@@ -21,7 +23,6 @@ use pyo3::{
     pyclass::CompareOp,
     types::{PyString, PyTuple},
 };
-use ustr::Ustr;
 
 use crate::identifier_for_python;
 

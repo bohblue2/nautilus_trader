@@ -13,12 +13,23 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use pyo3::{prelude::*, pymodule};
+//! Python bindings from `pyo3`.
 
-pub mod cache;
+#[cfg(feature = "redis")]
+pub mod redis;
+
+#[cfg(feature = "postgres")]
+pub mod sql;
+
+use pyo3::{prelude::*, pymodule};
 
 #[pymodule]
 pub fn infrastructure(_: Python<'_>, m: &PyModule) -> PyResult<()> {
-    m.add_class::<crate::redis::RedisCacheDatabase>()?;
+    #[cfg(feature = "redis")]
+    m.add_class::<crate::redis::cache::RedisCacheDatabase>()?;
+    #[cfg(feature = "redis")]
+    m.add_class::<crate::redis::msgbus::RedisMessageBusDatabase>()?;
+    #[cfg(feature = "postgres")]
+    m.add_class::<crate::sql::cache_database::PostgresCacheDatabase>()?;
     Ok(())
 }

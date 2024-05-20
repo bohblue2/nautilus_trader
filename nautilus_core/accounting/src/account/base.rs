@@ -19,7 +19,7 @@ use nautilus_model::{
     enums::{AccountType, LiquiditySide, OrderSide},
     events::{account::state::AccountState, order::filled::OrderFilled},
     identifiers::account_id::AccountId,
-    instruments::Instrument,
+    instruments::any::InstrumentAny,
     position::Position,
     types::{
         balance::AccountBalance, currency::Currency, money::Money, price::Price, quantity::Quantity,
@@ -137,9 +137,9 @@ impl BaseAccount {
         self.events.push(event);
     }
 
-    pub fn base_calculate_balance_locked<T: Instrument>(
+    pub fn base_calculate_balance_locked(
         &mut self,
-        instrument: T,
+        instrument: InstrumentAny,
         side: OrderSide,
         quantity: Quantity,
         price: Price,
@@ -154,7 +154,7 @@ impl BaseAccount {
                 .calculate_notional_value(quantity, price, use_quote_for_inverse)
                 .as_f64(),
             OrderSide::Sell => quantity.as_f64(),
-            _ => panic!("Invalid order side in `base_calculate_balance_locked`"),
+            _ => panic!("Invalid `OrderSide` in `base_calculate_balance_locked`"),
         };
         // Add expected commission
         let taker_fee = instrument.taker_fee().to_f64().unwrap();
@@ -168,13 +168,13 @@ impl BaseAccount {
         } else if side == OrderSide::Sell {
             Ok(Money::new(locked, base_currency).unwrap())
         } else {
-            panic!("Invalid order side in `base_calculate_balance_locked`")
+            panic!("Invalid `OrderSide` in `base_calculate_balance_locked`")
         }
     }
 
-    pub fn base_calculate_pnls<T: Instrument>(
+    pub fn base_calculate_pnls(
         &self,
-        instrument: T,
+        instrument: InstrumentAny,
         fill: OrderFilled,
         position: Option<Position>,
     ) -> anyhow::Result<Vec<Money>> {
@@ -209,14 +209,14 @@ impl BaseAccount {
                 Money::new(fill_qty * fill_px, quote_currency).unwrap(),
             );
         } else {
-            panic!("Invalid order side in   base_calculate_pnls")
+            panic!("Invalid `OrderSide` in base_calculate_pnls")
         }
         Ok(pnls.into_values().collect())
     }
 
-    pub fn base_calculate_commission<T: Instrument>(
+    pub fn base_calculate_commission(
         &self,
-        instrument: T,
+        instrument: InstrumentAny,
         last_qty: Quantity,
         last_px: Price,
         liquidity_side: LiquiditySide,
@@ -224,7 +224,7 @@ impl BaseAccount {
     ) -> anyhow::Result<Money> {
         assert!(
             liquidity_side != LiquiditySide::NoLiquiditySide,
-            "Invalid liquidity side"
+            "Invalid `LiquiditySide`"
         );
         let notional = instrument
             .calculate_notional_value(last_qty, last_px, use_quote_for_inverse)
@@ -234,7 +234,7 @@ impl BaseAccount {
         } else if liquidity_side == LiquiditySide::Taker {
             notional * instrument.taker_fee().to_f64().unwrap()
         } else {
-            panic!("Invalid liquid side {liquidity_side}")
+            panic!("Invalid `LiquiditySide` {liquidity_side}")
         };
         if instrument.is_inverse() && !use_quote_for_inverse.unwrap_or(false) {
             Ok(Money::new(commission, instrument.base_currency().unwrap()).unwrap())

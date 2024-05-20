@@ -17,6 +17,8 @@ import msgspec
 import pyarrow as pa
 
 from nautilus_trader.model.instruments import BettingInstrument
+from nautilus_trader.model.instruments import Cfd
+from nautilus_trader.model.instruments import Commodity
 from nautilus_trader.model.instruments import CryptoFuture
 from nautilus_trader.model.instruments import CryptoPerpetual
 from nautilus_trader.model.instruments import CurrencyPair
@@ -117,6 +119,7 @@ SCHEMAS = {
             "underlying": pa.dictionary(pa.int16(), pa.string()),
             "quote_currency": pa.dictionary(pa.int16(), pa.string()),
             "settlement_currency": pa.dictionary(pa.int16(), pa.string()),
+            "is_inverse": pa.bool_(),
             "activation_ns": pa.uint64(),
             "expiration_ns": pa.uint64(),
             "price_precision": pa.uint8(),
@@ -151,6 +154,7 @@ SCHEMAS = {
             "margin_maint": pa.string(),
             "maker_fee": pa.string(),
             "taker_fee": pa.string(),
+            "info": pa.binary(),
             "ts_event": pa.uint64(),
             "ts_init": pa.uint64(),
         },
@@ -171,6 +175,7 @@ SCHEMAS = {
             "lot_size": pa.dictionary(pa.int16(), pa.string()),
             "activation_ns": pa.uint64(),
             "expiration_ns": pa.uint64(),
+            "info": pa.binary(),
             "ts_event": pa.uint64(),
             "ts_init": pa.uint64(),
         },
@@ -192,6 +197,7 @@ SCHEMAS = {
             "lot_size": pa.dictionary(pa.int16(), pa.string()),
             "activation_ns": pa.uint64(),
             "expiration_ns": pa.uint64(),
+            "info": pa.binary(),
             "ts_event": pa.uint64(),
             "ts_init": pa.uint64(),
         },
@@ -214,6 +220,7 @@ SCHEMAS = {
             "expiration_ns": pa.uint64(),
             "strike_price": pa.dictionary(pa.int64(), pa.string()),
             "option_kind": pa.dictionary(pa.int8(), pa.string()),
+            "info": pa.binary(),
             "ts_event": pa.uint64(),
             "ts_init": pa.uint64(),
         },
@@ -235,6 +242,43 @@ SCHEMAS = {
             "lot_size": pa.dictionary(pa.int16(), pa.string()),
             "activation_ns": pa.uint64(),
             "expiration_ns": pa.uint64(),
+            "info": pa.binary(),
+            "ts_event": pa.uint64(),
+            "ts_init": pa.uint64(),
+        },
+    ),
+    Cfd: pa.schema(
+        {
+            "id": pa.dictionary(pa.int64(), pa.string()),
+            "raw_symbol": pa.string(),
+            "asset_class": pa.dictionary(pa.int8(), pa.string()),
+            "currency": pa.dictionary(pa.int16(), pa.string()),
+            "base_currency": pa.dictionary(pa.int16(), pa.string()),
+            "quote_currency": pa.dictionary(pa.int16(), pa.string()),
+            "price_precision": pa.uint8(),
+            "size_precision": pa.uint8(),
+            "price_increment": pa.dictionary(pa.int16(), pa.string()),
+            "size_increment": pa.dictionary(pa.int16(), pa.string()),
+            "multiplier": pa.dictionary(pa.int16(), pa.string()),
+            "lot_size": pa.dictionary(pa.int16(), pa.string()),
+            "underlying": pa.dictionary(pa.int16(), pa.string()),
+            "ts_event": pa.uint64(),
+            "ts_init": pa.uint64(),
+        },
+    ),
+    Commodity: pa.schema(
+        {
+            "id": pa.dictionary(pa.int64(), pa.string()),
+            "raw_symbol": pa.string(),
+            "asset_class": pa.dictionary(pa.int8(), pa.string()),
+            "currency": pa.dictionary(pa.int16(), pa.string()),
+            "quote_currency": pa.dictionary(pa.int16(), pa.string()),
+            "price_precision": pa.uint8(),
+            "size_precision": pa.uint8(),
+            "price_increment": pa.dictionary(pa.int16(), pa.string()),
+            "size_increment": pa.dictionary(pa.int16(), pa.string()),
+            "multiplier": pa.dictionary(pa.int16(), pa.string()),
+            "lot_size": pa.dictionary(pa.int16(), pa.string()),
             "ts_event": pa.uint64(),
             "ts_init": pa.uint64(),
         },

@@ -38,6 +38,7 @@ integration written for it, this then allows external publishing of messages.
 
 ```{note}
 Currently Redis is supported for all serializable messages which are published.
+The minimum supported Redis version is 6.2.0.
 ```
 
 Under the hood, when a backing database (or any other compatible technology) is configured,
@@ -55,15 +56,15 @@ Most Nautilus built-in objects are serializable, dictionaries `dict[str, Any]` c
 Additional custom types can be registered by calling the following registration function from the `serialization` subpackage:
 
 ```python
-def register_serializable_object(
-    obj,
+def register_serializable_type(
+    cls,
     to_dict: Callable[[Any], dict[str, Any]],
     from_dict: Callable[[dict[str, Any]], Any],
 ):
     ...
 ```
 
-- `obj` The object to register
+- `cls` The type to register
 - `to_dict` The delegate to instantiate a dict of primitive types from the object
 - `from_dict` The delegate to instantiate the object from a dict of primitive types
 
@@ -169,4 +170,6 @@ Automatic stream trimming helps manage the size of your message streams by remov
 ```{note}
 The current Redis implementation will maintain the `autotrim_mins` as a maximum width (plus roughly a minute, as streams are trimmed no more than once per minute).
 Rather than for instance a maximum lookback window based on the current wall clock time.
+
+The minimum supported Redis version is 6.2.0.
 ```

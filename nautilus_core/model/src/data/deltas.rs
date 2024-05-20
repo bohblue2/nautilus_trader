@@ -13,16 +13,18 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! An `OrderBookDeltas` container type to carry a bulk of `OrderBookDelta` records.
+
 use std::{
     fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
 
-use nautilus_core::time::UnixNanos;
+use nautilus_core::nanos::UnixNanos;
 
 use super::delta::OrderBookDelta;
-use crate::identifiers::instrument_id::InstrumentId;
+use crate::{identifiers::instrument_id::InstrumentId, polymorphism::GetTsInit};
 
 /// Represents a grouped batch of `OrderBookDelta` updates for an `OrderBook`.
 ///
@@ -37,13 +39,13 @@ pub struct OrderBookDeltas {
     pub instrument_id: InstrumentId,
     /// The order book deltas.
     pub deltas: Vec<OrderBookDelta>,
-    /// A combination of packet end with matching engine status.
+    /// The record flags bit field, indicating event end and data information.
     pub flags: u8,
     /// The message sequence number assigned at the venue.
     pub sequence: u64,
-    /// The UNIX timestamp (nanoseconds) when the data event occurred.
+    /// The UNIX timestamp (nanoseconds) when the book event occurred.
     pub ts_event: UnixNanos,
-    /// The UNIX timestamp (nanoseconds) when the data object was initialized.
+    /// The UNIX timestamp (nanoseconds) when the struct was initialized.
     pub ts_init: UnixNanos,
 }
 
@@ -103,6 +105,12 @@ impl Display for OrderBookDeltas {
     }
 }
 
+impl GetTsInit for OrderBookDeltas {
+    fn ts_init(&self) -> UnixNanos {
+        self.ts_init
+    }
+}
+
 /// Provides a C compatible Foreign Function Interface (FFI) for an underlying [`OrderBookDeltas`].
 ///
 /// This struct wraps `OrderBookDeltas` in a way that makes it compatible with C function
@@ -138,130 +146,15 @@ impl DerefMut for OrderBookDeltas_API {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Stubs
-////////////////////////////////////////////////////////////////////////////////
-#[cfg(feature = "stubs")]
-pub mod stubs {
-    use rstest::fixture;
-
-    use super::OrderBookDeltas;
-    use crate::{
-        data::{delta::OrderBookDelta, order::BookOrder},
-        enums::{BookAction, OrderSide},
-        identifiers::instrument_id::InstrumentId,
-        types::{price::Price, quantity::Quantity},
-    };
-
-    #[fixture]
-    pub fn stub_deltas() -> OrderBookDeltas {
-        let instrument_id = InstrumentId::from("AAPL.XNAS");
-        let flags = 32; // Snapshot flag
-        let sequence = 0;
-        let ts_event = 1;
-        let ts_init = 2;
-
-        let delta0 = OrderBookDelta::clear(instrument_id, sequence, ts_event, ts_init);
-        let delta1 = OrderBookDelta::new(
-            instrument_id,
-            BookAction::Add,
-            BookOrder::new(
-                OrderSide::Sell,
-                Price::from("102.00"),
-                Quantity::from("300"),
-                1,
-            ),
-            flags,
-            sequence,
-            ts_event,
-            ts_init,
-        );
-        let delta2 = OrderBookDelta::new(
-            instrument_id,
-            BookAction::Add,
-            BookOrder::new(
-                OrderSide::Sell,
-                Price::from("101.00"),
-                Quantity::from("200"),
-                2,
-            ),
-            flags,
-            sequence,
-            ts_event,
-            ts_init,
-        );
-        let delta3 = OrderBookDelta::new(
-            instrument_id,
-            BookAction::Add,
-            BookOrder::new(
-                OrderSide::Sell,
-                Price::from("100.00"),
-                Quantity::from("100"),
-                3,
-            ),
-            flags,
-            sequence,
-            ts_event,
-            ts_init,
-        );
-        let delta4 = OrderBookDelta::new(
-            instrument_id,
-            BookAction::Add,
-            BookOrder::new(
-                OrderSide::Buy,
-                Price::from("99.00"),
-                Quantity::from("100"),
-                4,
-            ),
-            flags,
-            sequence,
-            ts_event,
-            ts_init,
-        );
-        let delta5 = OrderBookDelta::new(
-            instrument_id,
-            BookAction::Add,
-            BookOrder::new(
-                OrderSide::Buy,
-                Price::from("98.00"),
-                Quantity::from("200"),
-                5,
-            ),
-            flags,
-            sequence,
-            ts_event,
-            ts_init,
-        );
-        let delta6 = OrderBookDelta::new(
-            instrument_id,
-            BookAction::Add,
-            BookOrder::new(
-                OrderSide::Buy,
-                Price::from("97.00"),
-                Quantity::from("300"),
-                6,
-            ),
-            flags,
-            sequence,
-            ts_event,
-            ts_init,
-        );
-
-        let deltas = vec![delta0, delta1, delta2, delta3, delta4, delta5, delta6];
-
-        OrderBookDeltas::new(instrument_id, deltas)
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Tests
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
 
-    use super::{stubs::*, *};
+    use super::*;
     use crate::{
-        data::order::BookOrder,
+        data::{order::BookOrder, stubs::stub_deltas},
         enums::{BookAction, OrderSide},
         types::{price::Price, quantity::Quantity},
     };
@@ -274,7 +167,8 @@ mod tests {
         let ts_event = 1;
         let ts_init = 2;
 
-        let delta0 = OrderBookDelta::clear(instrument_id, sequence, ts_event, ts_init);
+        let delta0 =
+            OrderBookDelta::clear(instrument_id, sequence, ts_event.into(), ts_init.into());
         let delta1 = OrderBookDelta::new(
             instrument_id,
             BookAction::Add,
@@ -286,8 +180,8 @@ mod tests {
             ),
             flags,
             sequence,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
         );
         let delta2 = OrderBookDelta::new(
             instrument_id,
@@ -300,8 +194,8 @@ mod tests {
             ),
             flags,
             sequence,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
         );
         let delta3 = OrderBookDelta::new(
             instrument_id,
@@ -314,8 +208,8 @@ mod tests {
             ),
             flags,
             sequence,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
         );
         let delta4 = OrderBookDelta::new(
             instrument_id,
@@ -328,8 +222,8 @@ mod tests {
             ),
             flags,
             sequence,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
         );
         let delta5 = OrderBookDelta::new(
             instrument_id,
@@ -342,8 +236,8 @@ mod tests {
             ),
             flags,
             sequence,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
         );
         let delta6 = OrderBookDelta::new(
             instrument_id,
@@ -356,8 +250,8 @@ mod tests {
             ),
             flags,
             sequence,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
         );
 
         let deltas = OrderBookDeltas::new(

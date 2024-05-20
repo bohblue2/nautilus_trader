@@ -15,17 +15,12 @@
 
 use std::collections::HashMap;
 
-use nautilus_core::{time::UnixNanos, uuid::UUID4};
+use nautilus_core::{nanos::UnixNanos, uuid::UUID4};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
-use super::{
-    limit::LimitOrder, limit_if_touched::LimitIfTouchedOrder,
-    market_if_touched::MarketIfTouchedOrder, market_to_limit::MarketToLimitOrder,
-    stop_limit::StopLimitOrder, stop_market::StopMarketOrder,
-    trailing_stop_limit::TrailingStopLimitOrder, trailing_stop_market::TrailingStopMarketOrder,
-};
+use super::any::OrderAny;
 use crate::{
     enums::{
         ContingencyType, LiquiditySide, OrderSide, OrderStatus, OrderType, PositionSide,
@@ -33,7 +28,7 @@ use crate::{
     },
     events::order::{
         accepted::OrderAccepted, cancel_rejected::OrderCancelRejected, canceled::OrderCanceled,
-        denied::OrderDenied, emulated::OrderEmulated, event::OrderEvent, expired::OrderExpired,
+        denied::OrderDenied, emulated::OrderEmulated, event::OrderEventAny, expired::OrderExpired,
         filled::OrderFilled, initialized::OrderInitialized, modify_rejected::OrderModifyRejected,
         pending_cancel::OrderPendingCancel, pending_update::OrderPendingUpdate,
         rejected::OrderRejected, released::OrderReleased, submitted::OrderSubmitted,
@@ -48,18 +43,24 @@ use crate::{
     types::{currency::Currency, money::Money, price::Price, quantity::Quantity},
 };
 
-const VALID_STOP_ORDER_TYPES: &[OrderType] = &[
+const STOP_ORDER_TYPES: &[OrderType] = &[
     OrderType::StopMarket,
     OrderType::StopLimit,
     OrderType::MarketIfTouched,
     OrderType::LimitIfTouched,
 ];
 
-const VALID_LIMIT_ORDER_TYPES: &[OrderType] = &[
+const LIMIT_ORDER_TYPES: &[OrderType] = &[
     OrderType::Limit,
     OrderType::StopLimit,
     OrderType::LimitIfTouched,
     OrderType::MarketIfTouched,
+];
+
+const LOCAL_ACTIVE_ORDER_STATUS: &[OrderStatus] = &[
+    OrderStatus::Initialized,
+    OrderStatus::Emulated,
+    OrderStatus::Released,
 ];
 
 #[derive(thiserror::Error, Debug)]
@@ -78,184 +79,6 @@ pub enum OrderError {
     NoPreviousState,
 }
 
-pub enum OrderSideFixed {
-    /// The order is a BUY.
-    Buy = 1,
-    /// The order is a SELL.
-    Sell = 2,
-}
-
-fn order_side_to_fixed(side: OrderSide) -> OrderSideFixed {
-    match side {
-        OrderSide::Buy => OrderSideFixed::Buy,
-        OrderSide::Sell => OrderSideFixed::Sell,
-        _ => panic!("Order invariant failed: side must be Buy or Sell"),
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum PassiveOrderType {
-    Limit(LimitOrderType),
-    Stop(StopOrderType),
-}
-
-impl PartialEq for PassiveOrderType {
-    fn eq(&self, rhs: &Self) -> bool {
-        match self {
-            Self::Limit(o) => o.get_client_order_id() == rhs.get_client_order_id(),
-            Self::Stop(o) => o.get_client_order_id() == rhs.get_client_order_id(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum LimitOrderType {
-    Limit(LimitOrder),
-    MarketToLimit(MarketToLimitOrder),
-    StopLimit(StopLimitOrder),
-    TrailingStopLimit(TrailingStopLimitOrder),
-}
-
-impl PartialEq for LimitOrderType {
-    fn eq(&self, rhs: &Self) -> bool {
-        match self {
-            Self::Limit(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::MarketToLimit(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::StopLimit(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::TrailingStopLimit(o) => o.client_order_id == rhs.get_client_order_id(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum StopOrderType {
-    StopMarket(StopMarketOrder),
-    StopLimit(StopLimitOrder),
-    MarketIfTouched(MarketIfTouchedOrder),
-    LimitIfTouched(LimitIfTouchedOrder),
-    TrailingStopMarket(TrailingStopMarketOrder),
-    TrailingStopLimit(TrailingStopLimitOrder),
-}
-
-impl PartialEq for StopOrderType {
-    fn eq(&self, rhs: &Self) -> bool {
-        match self {
-            Self::StopMarket(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::StopLimit(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::MarketIfTouched(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::LimitIfTouched(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::TrailingStopMarket(o) => o.client_order_id == rhs.get_client_order_id(),
-            Self::TrailingStopLimit(o) => o.client_order_id == rhs.get_client_order_id(),
-        }
-    }
-}
-
-pub trait GetClientOrderId {
-    fn get_client_order_id(&self) -> ClientOrderId;
-}
-
-pub trait GetOrderSide {
-    fn get_order_side(&self) -> OrderSideFixed;
-}
-
-pub trait GetLimitPrice {
-    fn get_limit_px(&self) -> Price;
-}
-
-pub trait GetStopPrice {
-    fn get_stop_px(&self) -> Price;
-}
-
-impl GetClientOrderId for PassiveOrderType {
-    fn get_client_order_id(&self) -> ClientOrderId {
-        match self {
-            Self::Limit(o) => o.get_client_order_id(),
-            Self::Stop(o) => o.get_client_order_id(),
-        }
-    }
-}
-
-impl GetOrderSide for PassiveOrderType {
-    fn get_order_side(&self) -> OrderSideFixed {
-        match self {
-            Self::Limit(o) => o.get_order_side(),
-            Self::Stop(o) => o.get_order_side(),
-        }
-    }
-}
-
-impl GetClientOrderId for LimitOrderType {
-    fn get_client_order_id(&self) -> ClientOrderId {
-        match self {
-            Self::Limit(o) => o.client_order_id,
-            Self::MarketToLimit(o) => o.client_order_id,
-            Self::StopLimit(o) => o.client_order_id,
-            Self::TrailingStopLimit(o) => o.client_order_id,
-        }
-    }
-}
-
-impl GetOrderSide for LimitOrderType {
-    fn get_order_side(&self) -> OrderSideFixed {
-        match self {
-            Self::Limit(o) => order_side_to_fixed(o.side),
-            Self::MarketToLimit(o) => order_side_to_fixed(o.side),
-            Self::StopLimit(o) => order_side_to_fixed(o.side),
-            Self::TrailingStopLimit(o) => order_side_to_fixed(o.side),
-        }
-    }
-}
-
-impl GetLimitPrice for LimitOrderType {
-    fn get_limit_px(&self) -> Price {
-        match self {
-            Self::Limit(o) => o.price,
-            Self::MarketToLimit(o) => o.price.expect("No price for order"), // TBD
-            Self::StopLimit(o) => o.price,
-            Self::TrailingStopLimit(o) => o.price,
-        }
-    }
-}
-
-impl GetClientOrderId for StopOrderType {
-    fn get_client_order_id(&self) -> ClientOrderId {
-        match self {
-            Self::StopMarket(o) => o.client_order_id,
-            Self::StopLimit(o) => o.client_order_id,
-            Self::MarketIfTouched(o) => o.client_order_id,
-            Self::LimitIfTouched(o) => o.client_order_id,
-            Self::TrailingStopMarket(o) => o.client_order_id,
-            Self::TrailingStopLimit(o) => o.client_order_id,
-        }
-    }
-}
-
-impl GetOrderSide for StopOrderType {
-    fn get_order_side(&self) -> OrderSideFixed {
-        match self {
-            Self::StopMarket(o) => order_side_to_fixed(o.side),
-            Self::StopLimit(o) => order_side_to_fixed(o.side),
-            Self::MarketIfTouched(o) => order_side_to_fixed(o.side),
-            Self::LimitIfTouched(o) => order_side_to_fixed(o.side),
-            Self::TrailingStopMarket(o) => order_side_to_fixed(o.side),
-            Self::TrailingStopLimit(o) => order_side_to_fixed(o.side),
-        }
-    }
-}
-
-impl GetStopPrice for StopOrderType {
-    fn get_stop_px(&self) -> Price {
-        match self {
-            Self::StopMarket(o) => o.trigger_price,
-            Self::StopLimit(o) => o.trigger_price,
-            Self::MarketIfTouched(o) => o.trigger_price,
-            Self::LimitIfTouched(o) => o.trigger_price,
-            Self::TrailingStopMarket(o) => o.trigger_price,
-            Self::TrailingStopLimit(o) => o.trigger_price,
-        }
-    }
-}
-
 #[must_use]
 pub fn ustr_hashmap_to_str(h: HashMap<Ustr, Ustr>) -> HashMap<String, String> {
     h.into_iter()
@@ -272,76 +95,77 @@ pub fn str_hashmap_to_ustr(h: HashMap<String, String>) -> HashMap<Ustr, Ustr> {
 
 impl OrderStatus {
     #[rustfmt::skip]
-    pub fn transition(&mut self, event: &OrderEvent) -> Result<Self, OrderError> {
+    pub fn transition(&mut self, event: &OrderEventAny) -> Result<Self, OrderError> {
         let new_state = match (self, event) {
-            (Self::Initialized, OrderEvent::OrderDenied(_)) => Self::Denied,
-            (Self::Initialized, OrderEvent::OrderEmulated(_)) => Self::Emulated,  // Emulated orders
-            (Self::Initialized, OrderEvent::OrderReleased(_)) => Self::Released,  // Emulated orders
-            (Self::Initialized, OrderEvent::OrderSubmitted(_)) => Self::Submitted,
-            (Self::Initialized, OrderEvent::OrderRejected(_)) => Self::Rejected,  // External orders
-            (Self::Initialized, OrderEvent::OrderAccepted(_)) => Self::Accepted,  // External orders
-            (Self::Initialized, OrderEvent::OrderCanceled(_)) => Self::Canceled,  // External orders
-            (Self::Initialized, OrderEvent::OrderExpired(_)) => Self::Expired,  // External orders
-            (Self::Initialized, OrderEvent::OrderTriggered(_)) => Self::Triggered, // External orders
-            (Self::Emulated, OrderEvent::OrderCanceled(_)) => Self::Canceled,  // Emulated orders
-            (Self::Emulated, OrderEvent::OrderExpired(_)) => Self::Expired,  // Emulated orders
-            (Self::Emulated, OrderEvent::OrderReleased(_)) => Self::Released,  // Emulated orders
-            (Self::Released, OrderEvent::OrderSubmitted(_)) => Self::Submitted,  // Emulated orders
-            (Self::Released, OrderEvent::OrderDenied(_)) => Self::Denied,  // Emulated orders
-            (Self::Released, OrderEvent::OrderCanceled(_)) => Self::Canceled,  // Execution algo
-            (Self::Submitted, OrderEvent::OrderPendingUpdate(_)) => Self::PendingUpdate,
-            (Self::Submitted, OrderEvent::OrderPendingCancel(_)) => Self::PendingCancel,
-            (Self::Submitted, OrderEvent::OrderRejected(_)) => Self::Rejected,
-            (Self::Submitted, OrderEvent::OrderCanceled(_)) => Self::Canceled,  // FOK and IOC cases
-            (Self::Submitted, OrderEvent::OrderAccepted(_)) => Self::Accepted,
-            (Self::Submitted, OrderEvent::OrderPartiallyFilled(_)) => Self::PartiallyFilled,
-            (Self::Submitted, OrderEvent::OrderFilled(_)) => Self::Filled,
-            (Self::Accepted, OrderEvent::OrderRejected(_)) => Self::Rejected,  // StopLimit order
-            (Self::Accepted, OrderEvent::OrderPendingUpdate(_)) => Self::PendingUpdate,
-            (Self::Accepted, OrderEvent::OrderPendingCancel(_)) => Self::PendingCancel,
-            (Self::Accepted, OrderEvent::OrderCanceled(_)) => Self::Canceled,
-            (Self::Accepted, OrderEvent::OrderTriggered(_)) => Self::Triggered,
-            (Self::Accepted, OrderEvent::OrderExpired(_)) => Self::Expired,
-            (Self::Accepted, OrderEvent::OrderPartiallyFilled(_)) => Self::PartiallyFilled,
-            (Self::Accepted, OrderEvent::OrderFilled(_)) => Self::Filled,
-            (Self::Canceled, OrderEvent::OrderPartiallyFilled(_)) => Self::PartiallyFilled,  // Real world possibility
-            (Self::Canceled, OrderEvent::OrderFilled(_)) => Self::Filled,  // Real world possibility
-            (Self::PendingUpdate, OrderEvent::OrderRejected(_)) => Self::Rejected,
-            (Self::PendingUpdate, OrderEvent::OrderAccepted(_)) => Self::Accepted,
-            (Self::PendingUpdate, OrderEvent::OrderCanceled(_)) => Self::Canceled,
-            (Self::PendingUpdate, OrderEvent::OrderExpired(_)) => Self::Expired,
-            (Self::PendingUpdate, OrderEvent::OrderTriggered(_)) => Self::Triggered,
-            (Self::PendingUpdate, OrderEvent::OrderPendingUpdate(_)) => Self::PendingUpdate,  // Allow multiple requests
-            (Self::PendingUpdate, OrderEvent::OrderPendingCancel(_)) => Self::PendingCancel,
-            (Self::PendingUpdate, OrderEvent::OrderPartiallyFilled(_)) => Self::PartiallyFilled,
-            (Self::PendingUpdate, OrderEvent::OrderFilled(_)) => Self::Filled,
-            (Self::PendingCancel, OrderEvent::OrderRejected(_)) => Self::Rejected,
-            (Self::PendingCancel, OrderEvent::OrderPendingCancel(_)) => Self::PendingCancel,  // Allow multiple requests
-            (Self::PendingCancel, OrderEvent::OrderCanceled(_)) => Self::Canceled,
-            (Self::PendingCancel, OrderEvent::OrderExpired(_)) => Self::Expired,
-            (Self::PendingCancel, OrderEvent::OrderAccepted(_)) => Self::Accepted,  // Allow failed cancel requests
-            (Self::PendingCancel, OrderEvent::OrderPartiallyFilled(_)) => Self::PartiallyFilled,
-            (Self::PendingCancel, OrderEvent::OrderFilled(_)) => Self::Filled,
-            (Self::Triggered, OrderEvent::OrderRejected(_)) => Self::Rejected,
-            (Self::Triggered, OrderEvent::OrderPendingUpdate(_)) => Self::PendingUpdate,
-            (Self::Triggered, OrderEvent::OrderPendingCancel(_)) => Self::PendingCancel,
-            (Self::Triggered, OrderEvent::OrderCanceled(_)) => Self::Canceled,
-            (Self::Triggered, OrderEvent::OrderExpired(_)) => Self::Expired,
-            (Self::Triggered, OrderEvent::OrderPartiallyFilled(_)) => Self::PartiallyFilled,
-            (Self::Triggered, OrderEvent::OrderFilled(_)) => Self::Filled,
-            (Self::PartiallyFilled, OrderEvent::OrderPendingUpdate(_)) => Self::PendingUpdate,
-            (Self::PartiallyFilled, OrderEvent::OrderPendingCancel(_)) => Self::PendingCancel,
-            (Self::PartiallyFilled, OrderEvent::OrderCanceled(_)) => Self::Canceled,
-            (Self::PartiallyFilled, OrderEvent::OrderExpired(_)) => Self::Expired,
-            (Self::PartiallyFilled, OrderEvent::OrderPartiallyFilled(_)) => Self::PartiallyFilled,
-            (Self::PartiallyFilled, OrderEvent::OrderFilled(_)) => Self::Filled,
+            (Self::Initialized, OrderEventAny::Denied(_)) => Self::Denied,
+            (Self::Initialized, OrderEventAny::Emulated(_)) => Self::Emulated,  // Emulated orders
+            (Self::Initialized, OrderEventAny::Released(_)) => Self::Released,  // Emulated orders
+            (Self::Initialized, OrderEventAny::Submitted(_)) => Self::Submitted,
+            (Self::Initialized, OrderEventAny::Rejected(_)) => Self::Rejected,  // External orders
+            (Self::Initialized, OrderEventAny::Accepted(_)) => Self::Accepted,  // External orders
+            (Self::Initialized, OrderEventAny::Canceled(_)) => Self::Canceled,  // External orders
+            (Self::Initialized, OrderEventAny::Expired(_)) => Self::Expired,  // External orders
+            (Self::Initialized, OrderEventAny::Triggered(_)) => Self::Triggered, // External orders
+            (Self::Emulated, OrderEventAny::Canceled(_)) => Self::Canceled,  // Emulated orders
+            (Self::Emulated, OrderEventAny::Expired(_)) => Self::Expired,  // Emulated orders
+            (Self::Emulated, OrderEventAny::Released(_)) => Self::Released,  // Emulated orders
+            (Self::Released, OrderEventAny::Submitted(_)) => Self::Submitted,  // Emulated orders
+            (Self::Released, OrderEventAny::Denied(_)) => Self::Denied,  // Emulated orders
+            (Self::Released, OrderEventAny::Canceled(_)) => Self::Canceled,  // Execution algo
+            (Self::Submitted, OrderEventAny::PendingUpdate(_)) => Self::PendingUpdate,
+            (Self::Submitted, OrderEventAny::PendingCancel(_)) => Self::PendingCancel,
+            (Self::Submitted, OrderEventAny::Rejected(_)) => Self::Rejected,
+            (Self::Submitted, OrderEventAny::Canceled(_)) => Self::Canceled,  // FOK and IOC cases
+            (Self::Submitted, OrderEventAny::Accepted(_)) => Self::Accepted,
+            (Self::Submitted, OrderEventAny::PartiallyFilled(_)) => Self::PartiallyFilled,
+            (Self::Submitted, OrderEventAny::Filled(_)) => Self::Filled,
+            (Self::Accepted, OrderEventAny::Rejected(_)) => Self::Rejected,  // StopLimit order
+            (Self::Accepted, OrderEventAny::PendingUpdate(_)) => Self::PendingUpdate,
+            (Self::Accepted, OrderEventAny::PendingCancel(_)) => Self::PendingCancel,
+            (Self::Accepted, OrderEventAny::Canceled(_)) => Self::Canceled,
+            (Self::Accepted, OrderEventAny::Triggered(_)) => Self::Triggered,
+            (Self::Accepted, OrderEventAny::Expired(_)) => Self::Expired,
+            (Self::Accepted, OrderEventAny::PartiallyFilled(_)) => Self::PartiallyFilled,
+            (Self::Accepted, OrderEventAny::Filled(_)) => Self::Filled,
+            (Self::Canceled, OrderEventAny::PartiallyFilled(_)) => Self::PartiallyFilled,  // Real world possibility
+            (Self::Canceled, OrderEventAny::Filled(_)) => Self::Filled,  // Real world possibility
+            (Self::PendingUpdate, OrderEventAny::Rejected(_)) => Self::Rejected,
+            (Self::PendingUpdate, OrderEventAny::Accepted(_)) => Self::Accepted,
+            (Self::PendingUpdate, OrderEventAny::Canceled(_)) => Self::Canceled,
+            (Self::PendingUpdate, OrderEventAny::Expired(_)) => Self::Expired,
+            (Self::PendingUpdate, OrderEventAny::Triggered(_)) => Self::Triggered,
+            (Self::PendingUpdate, OrderEventAny::PendingUpdate(_)) => Self::PendingUpdate,  // Allow multiple requests
+            (Self::PendingUpdate, OrderEventAny::PendingCancel(_)) => Self::PendingCancel,
+            (Self::PendingUpdate, OrderEventAny::PartiallyFilled(_)) => Self::PartiallyFilled,
+            (Self::PendingUpdate, OrderEventAny::Filled(_)) => Self::Filled,
+            (Self::PendingCancel, OrderEventAny::Rejected(_)) => Self::Rejected,
+            (Self::PendingCancel, OrderEventAny::PendingCancel(_)) => Self::PendingCancel,  // Allow multiple requests
+            (Self::PendingCancel, OrderEventAny::Canceled(_)) => Self::Canceled,
+            (Self::PendingCancel, OrderEventAny::Expired(_)) => Self::Expired,
+            (Self::PendingCancel, OrderEventAny::Accepted(_)) => Self::Accepted,  // Allow failed cancel requests
+            (Self::PendingCancel, OrderEventAny::PartiallyFilled(_)) => Self::PartiallyFilled,
+            (Self::PendingCancel, OrderEventAny::Filled(_)) => Self::Filled,
+            (Self::Triggered, OrderEventAny::Rejected(_)) => Self::Rejected,
+            (Self::Triggered, OrderEventAny::PendingUpdate(_)) => Self::PendingUpdate,
+            (Self::Triggered, OrderEventAny::PendingCancel(_)) => Self::PendingCancel,
+            (Self::Triggered, OrderEventAny::Canceled(_)) => Self::Canceled,
+            (Self::Triggered, OrderEventAny::Expired(_)) => Self::Expired,
+            (Self::Triggered, OrderEventAny::PartiallyFilled(_)) => Self::PartiallyFilled,
+            (Self::Triggered, OrderEventAny::Filled(_)) => Self::Filled,
+            (Self::PartiallyFilled, OrderEventAny::PendingUpdate(_)) => Self::PendingUpdate,
+            (Self::PartiallyFilled, OrderEventAny::PendingCancel(_)) => Self::PendingCancel,
+            (Self::PartiallyFilled, OrderEventAny::Canceled(_)) => Self::Canceled,
+            (Self::PartiallyFilled, OrderEventAny::Expired(_)) => Self::Expired,
+            (Self::PartiallyFilled, OrderEventAny::PartiallyFilled(_)) => Self::PartiallyFilled,
+            (Self::PartiallyFilled, OrderEventAny::Filled(_)) => Self::Filled,
             _ => return Err(OrderError::InvalidStateTransition),
         };
         Ok(new_state)
     }
 }
 
-pub trait Order {
+pub trait Order: 'static + Send {
+    fn into_any(self) -> OrderAny;
     fn status(&self) -> OrderStatus;
     fn trader_id(&self) -> TraderId;
     fn strategy_id(&self) -> StrategyId;
@@ -373,12 +197,12 @@ pub trait Order {
     fn trigger_instrument_id(&self) -> Option<InstrumentId>;
     fn contingency_type(&self) -> Option<ContingencyType>;
     fn order_list_id(&self) -> Option<OrderListId>;
-    fn linked_order_ids(&self) -> Option<Vec<ClientOrderId>>;
+    fn linked_order_ids(&self) -> Option<&[ClientOrderId]>;
     fn parent_order_id(&self) -> Option<ClientOrderId>;
     fn exec_algorithm_id(&self) -> Option<ExecAlgorithmId>;
-    fn exec_algorithm_params(&self) -> Option<HashMap<Ustr, Ustr>>;
+    fn exec_algorithm_params(&self) -> Option<&HashMap<Ustr, Ustr>>;
     fn exec_spawn_id(&self) -> Option<ClientOrderId>;
-    fn tags(&self) -> Option<Ustr>;
+    fn tags(&self) -> Option<&[Ustr]>;
     fn filled_qty(&self) -> Quantity;
     fn leaves_qty(&self) -> Quantity;
     fn avg_px(&self) -> Option<f64>;
@@ -387,11 +211,11 @@ pub trait Order {
     fn ts_init(&self) -> UnixNanos;
     fn ts_last(&self) -> UnixNanos;
 
-    fn apply(&mut self, event: OrderEvent) -> Result<(), OrderError>;
+    fn apply(&mut self, event: OrderEventAny) -> Result<(), OrderError>;
     fn update(&mut self, event: &OrderUpdated);
 
-    fn events(&self) -> Vec<&OrderEvent>;
-    fn last_event(&self) -> &OrderEvent {
+    fn events(&self) -> Vec<&OrderEventAny>;
+    fn last_event(&self) -> &OrderEventAny {
         // SAFETY: Unwrap safe as `Order` specification guarantees at least one event (`OrderInitialized`)
         self.events().last().unwrap()
     }
@@ -459,15 +283,20 @@ pub trait Order {
     }
 
     fn is_open(&self) -> bool {
-        self.emulation_trigger().is_none()
-            && matches!(
-                self.status(),
-                OrderStatus::Accepted
-                    | OrderStatus::Triggered
-                    | OrderStatus::PendingCancel
-                    | OrderStatus::PendingUpdate
-                    | OrderStatus::PartiallyFilled
-            )
+        if let Some(emulation_trigger) = self.emulation_trigger() {
+            if emulation_trigger != TriggerType::NoTrigger {
+                return false;
+            }
+        }
+
+        matches!(
+            self.status(),
+            OrderStatus::Accepted
+                | OrderStatus::Triggered
+                | OrderStatus::PendingCancel
+                | OrderStatus::PendingUpdate
+                | OrderStatus::PartiallyFilled
+        )
     }
 
     fn is_canceled(&self) -> bool {
@@ -536,12 +365,12 @@ where
             trigger_instrument_id: order.trigger_instrument_id(),
             contingency_type: order.contingency_type(),
             order_list_id: order.order_list_id(),
-            linked_order_ids: order.linked_order_ids(),
+            linked_order_ids: order.linked_order_ids().map(|x| x.to_vec()),
             parent_order_id: order.parent_order_id(),
             exec_algorithm_id: order.exec_algorithm_id(),
-            exec_algorithm_params: order.exec_algorithm_params(),
+            exec_algorithm_params: order.exec_algorithm_params().map(|x| x.to_owned()),
             exec_spawn_id: order.exec_spawn_id(),
-            tags: order.tags(),
+            tags: order.tags().map(|x| x.to_vec()),
             event_id: order.init_id(),
             ts_event: order.ts_init(),
             ts_init: order.ts_init(),
@@ -552,7 +381,7 @@ where
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrderCore {
-    pub events: Vec<OrderEvent>,
+    pub events: Vec<OrderEventAny>,
     pub commissions: HashMap<Currency, Money>,
     pub venue_order_ids: Vec<VenueOrderId>,
     pub trade_ids: Vec<TradeId>,
@@ -581,7 +410,7 @@ pub struct OrderCore {
     pub exec_algorithm_id: Option<ExecAlgorithmId>,
     pub exec_algorithm_params: Option<HashMap<Ustr, Ustr>>,
     pub exec_spawn_id: Option<ClientOrderId>,
-    pub tags: Option<Ustr>,
+    pub tags: Option<Vec<Ustr>>,
     pub filled_qty: Quantity,
     pub leaves_qty: Quantity,
     pub avg_px: Option<f64>,
@@ -592,73 +421,52 @@ pub struct OrderCore {
 }
 
 impl OrderCore {
-    #[must_use]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        trader_id: TraderId,
-        strategy_id: StrategyId,
-        instrument_id: InstrumentId,
-        client_order_id: ClientOrderId,
-        order_side: OrderSide,
-        order_type: OrderType,
-        quantity: Quantity,
-        time_in_force: TimeInForce,
-        reduce_only: bool,
-        quote_quantity: bool,
-        emulation_trigger: Option<TriggerType>,
-        contingency_type: Option<ContingencyType>,
-        order_list_id: Option<OrderListId>,
-        linked_order_ids: Option<Vec<ClientOrderId>>,
-        parent_order_id: Option<ClientOrderId>,
-        exec_algorithm_id: Option<ExecAlgorithmId>,
-        exec_algorithm_params: Option<HashMap<Ustr, Ustr>>,
-        exec_spawn_id: Option<ClientOrderId>,
-        tags: Option<Ustr>,
-        init_id: UUID4,
-        ts_init: UnixNanos,
-    ) -> Self {
-        Self {
-            events: Vec::new(),
+    pub fn new(init: OrderInitialized) -> anyhow::Result<Self> {
+        let events: Vec<OrderEventAny> = vec![OrderEventAny::Initialized(init.clone())];
+        Ok(Self {
+            events,
             commissions: HashMap::new(),
             venue_order_ids: Vec::new(),
             trade_ids: Vec::new(),
             previous_status: None,
             status: OrderStatus::Initialized,
-            trader_id,
-            strategy_id,
-            instrument_id,
-            client_order_id,
+            trader_id: init.trader_id,
+            strategy_id: init.strategy_id,
+            instrument_id: init.instrument_id,
+            client_order_id: init.client_order_id,
             venue_order_id: None,
             position_id: None,
             account_id: None,
             last_trade_id: None,
-            side: order_side,
-            order_type,
-            quantity,
-            time_in_force,
+            side: init.order_side,
+            order_type: init.order_type,
+            quantity: init.quantity,
+            time_in_force: init.time_in_force,
             liquidity_side: Some(LiquiditySide::NoLiquiditySide),
-            is_reduce_only: reduce_only,
-            is_quote_quantity: quote_quantity,
-            emulation_trigger: emulation_trigger.or(Some(TriggerType::NoTrigger)),
-            contingency_type: contingency_type.or(Some(ContingencyType::NoContingency)),
-            order_list_id,
-            linked_order_ids,
-            parent_order_id,
-            exec_algorithm_id,
-            exec_algorithm_params,
-            exec_spawn_id,
-            tags,
-            filled_qty: Quantity::zero(quantity.precision),
-            leaves_qty: quantity,
+            is_reduce_only: init.reduce_only,
+            is_quote_quantity: init.quote_quantity,
+            emulation_trigger: init.emulation_trigger.or(Some(TriggerType::NoTrigger)),
+            contingency_type: init
+                .contingency_type
+                .or(Some(ContingencyType::NoContingency)),
+            order_list_id: init.order_list_id,
+            linked_order_ids: init.linked_order_ids,
+            parent_order_id: init.parent_order_id,
+            exec_algorithm_id: init.exec_algorithm_id,
+            exec_algorithm_params: init.exec_algorithm_params,
+            exec_spawn_id: init.exec_spawn_id,
+            tags: init.tags,
+            filled_qty: Quantity::zero(init.quantity.precision),
+            leaves_qty: init.quantity,
             avg_px: None,
             slippage: None,
-            init_id,
-            ts_init,
-            ts_last: ts_init,
-        }
+            init_id: init.event_id,
+            ts_init: init.ts_event,
+            ts_last: init.ts_event,
+        })
     }
 
-    pub fn apply(&mut self, event: OrderEvent) -> Result<(), OrderError> {
+    pub fn apply(&mut self, event: OrderEventAny) -> Result<(), OrderError> {
         assert_eq!(self.client_order_id, event.client_order_id());
         assert_eq!(self.strategy_id, event.strategy_id());
 
@@ -667,23 +475,23 @@ impl OrderCore {
         self.status = new_status;
 
         match &event {
-            OrderEvent::OrderInitialized(_) => return Err(OrderError::AlreadyInitialized),
-            OrderEvent::OrderDenied(event) => self.denied(event),
-            OrderEvent::OrderEmulated(event) => self.emulated(event),
-            OrderEvent::OrderReleased(event) => self.released(event),
-            OrderEvent::OrderSubmitted(event) => self.submitted(event),
-            OrderEvent::OrderRejected(event) => self.rejected(event),
-            OrderEvent::OrderAccepted(event) => self.accepted(event),
-            OrderEvent::OrderPendingUpdate(event) => self.pending_update(event),
-            OrderEvent::OrderPendingCancel(event) => self.pending_cancel(event),
-            OrderEvent::OrderModifyRejected(event) => self.modify_rejected(event),
-            OrderEvent::OrderCancelRejected(event) => self.cancel_rejected(event),
-            OrderEvent::OrderUpdated(event) => self.updated(event),
-            OrderEvent::OrderTriggered(event) => self.triggered(event),
-            OrderEvent::OrderCanceled(event) => self.canceled(event),
-            OrderEvent::OrderExpired(event) => self.expired(event),
-            OrderEvent::OrderPartiallyFilled(event) => self.filled(event),
-            OrderEvent::OrderFilled(event) => self.filled(event),
+            OrderEventAny::Initialized(_) => return Err(OrderError::AlreadyInitialized),
+            OrderEventAny::Denied(event) => self.denied(event),
+            OrderEventAny::Emulated(event) => self.emulated(event),
+            OrderEventAny::Released(event) => self.released(event),
+            OrderEventAny::Submitted(event) => self.submitted(event),
+            OrderEventAny::Rejected(event) => self.rejected(event),
+            OrderEventAny::Accepted(event) => self.accepted(event),
+            OrderEventAny::PendingUpdate(event) => self.pending_update(event),
+            OrderEventAny::PendingCancel(event) => self.pending_cancel(event),
+            OrderEventAny::ModifyRejected(event) => self.modify_rejected(event),
+            OrderEventAny::CancelRejected(event) => self.cancel_rejected(event),
+            OrderEventAny::Updated(event) => self.updated(event),
+            OrderEventAny::Triggered(event) => self.triggered(event),
+            OrderEventAny::Canceled(event) => self.canceled(event),
+            OrderEventAny::Expired(event) => self.expired(event),
+            OrderEventAny::PartiallyFilled(event) => self.filled(event),
+            OrderEventAny::Filled(event) => self.filled(event),
         }
 
         self.ts_last = event.ts_event();
@@ -845,8 +653,8 @@ impl OrderCore {
     }
 
     #[must_use]
-    pub fn init_event(&self) -> Option<&OrderEvent> {
-        self.events.first()
+    pub fn init_event(&self) -> Option<OrderEventAny> {
+        self.events.first().cloned()
     }
 }
 
@@ -944,14 +752,14 @@ mod tests {
     fn test_order_state_transition_denied() {
         let mut order: MarketOrder = OrderInitializedBuilder::default().build().unwrap().into();
         let denied = OrderDeniedBuilder::default().build().unwrap();
-        let event = OrderEvent::OrderDenied(denied);
+        let event = OrderEventAny::Denied(denied);
 
         order.apply(event.clone()).unwrap();
 
         assert_eq!(order.status, OrderStatus::Denied);
         assert!(order.is_closed());
         assert!(!order.is_open());
-        assert_eq!(order.event_count(), 1);
+        assert_eq!(order.event_count(), 2);
         assert_eq!(order.last_event(), &event);
     }
 
@@ -963,9 +771,9 @@ mod tests {
         let filled = OrderFilledBuilder::default().build().unwrap();
 
         let mut order: MarketOrder = init.clone().into();
-        order.apply(OrderEvent::OrderSubmitted(submitted)).unwrap();
-        order.apply(OrderEvent::OrderAccepted(accepted)).unwrap();
-        order.apply(OrderEvent::OrderFilled(filled)).unwrap();
+        order.apply(OrderEventAny::Submitted(submitted)).unwrap();
+        order.apply(OrderEventAny::Accepted(accepted)).unwrap();
+        order.apply(OrderEventAny::Filled(filled)).unwrap();
 
         assert_eq!(order.client_order_id, init.client_order_id);
         assert_eq!(order.status(), OrderStatus::Filled);

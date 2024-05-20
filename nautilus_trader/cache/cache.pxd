@@ -14,6 +14,7 @@
 # -------------------------------------------------------------------------------------------------
 
 from cpython.datetime cimport datetime
+from cpython.datetime cimport timedelta
 from libc.stdint cimport uint64_t
 
 from nautilus_trader.accounting.accounts.base cimport Account
@@ -22,6 +23,7 @@ from nautilus_trader.cache.base cimport CacheFacade
 from nautilus_trader.cache.facade cimport CacheDatabaseFacade
 from nautilus_trader.common.actor cimport Actor
 from nautilus_trader.common.component cimport Logger
+from nautilus_trader.core.rust.model cimport AggregationSource
 from nautilus_trader.core.rust.model cimport OmsType
 from nautilus_trader.core.rust.model cimport OrderSide
 from nautilus_trader.core.rust.model cimport PositionSide
@@ -29,6 +31,7 @@ from nautilus_trader.execution.messages cimport SubmitOrder
 from nautilus_trader.execution.messages cimport SubmitOrderList
 from nautilus_trader.model.book cimport OrderBook
 from nautilus_trader.model.data cimport Bar
+from nautilus_trader.model.data cimport BarType
 from nautilus_trader.model.data cimport QuoteTick
 from nautilus_trader.model.data cimport TradeTick
 from nautilus_trader.model.identifiers cimport AccountId
@@ -39,6 +42,7 @@ from nautilus_trader.model.identifiers cimport OrderListId
 from nautilus_trader.model.identifiers cimport PositionId
 from nautilus_trader.model.identifiers cimport StrategyId
 from nautilus_trader.model.identifiers cimport Venue
+from nautilus_trader.model.identifiers cimport VenueOrderId
 from nautilus_trader.model.instruments.base cimport Instrument
 from nautilus_trader.model.instruments.synthetic cimport SyntheticInstrument
 from nautilus_trader.model.objects cimport Currency
@@ -75,7 +79,8 @@ cdef class Cache(CacheFacade):
     cdef dict _index_venue_account
     cdef dict _index_venue_orders
     cdef dict _index_venue_positions
-    cdef dict _index_order_ids
+    cdef dict _index_venue_order_ids
+    cdef dict _index_client_order_ids
     cdef dict _index_order_position
     cdef dict _index_order_strategy
     cdef dict _index_order_client
@@ -123,6 +128,7 @@ cdef class Cache(CacheFacade):
     cpdef bint check_residuals(self)
     cpdef void clear_index(self)
     cpdef void reset(self)
+    cpdef void dispose(self)
     cpdef void flush_db(self)
 
     cdef tuple _build_quote_table(self, Venue venue)
@@ -156,7 +162,8 @@ cdef class Cache(CacheFacade):
     cpdef void add_instrument(self, Instrument instrument)
     cpdef void add_synthetic(self, SyntheticInstrument synthetic)
     cpdef void add_account(self, Account account)
-    cpdef void add_order(self, Order order, PositionId position_id=*, ClientId client_id=*, bint override=*)
+    cpdef void add_venue_order_id(self, ClientOrderId client_order_id, VenueOrderId venue_order_id, bint overwrite=*)
+    cpdef void add_order(self, Order order, PositionId position_id=*, ClientId client_id=*, bint overwrite=*)
     cpdef void add_order_list(self, OrderList order_list)
     cpdef void add_position_id(self, PositionId position_id, Venue venue, ClientOrderId client_order_id, StrategyId strategy_id)
     cpdef void add_position(self, Position position, OmsType oms_type)
@@ -174,3 +181,12 @@ cdef class Cache(CacheFacade):
     cpdef void delete_strategy(self, Strategy strategy)
 
     cpdef void heartbeat(self, datetime timestamp)
+
+    cdef timedelta _get_timedelta(self, BarType bar_type)
+
+    cpdef list bar_types(
+        self,
+        InstrumentId instrument_id=*,
+        object price_type=*,
+        AggregationSource aggregation_source=*,
+    )

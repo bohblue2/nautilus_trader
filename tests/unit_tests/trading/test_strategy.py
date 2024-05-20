@@ -26,6 +26,7 @@ from nautilus_trader.backtest.exchange import SimulatedExchange
 from nautilus_trader.backtest.execution_client import BacktestExecClient
 from nautilus_trader.backtest.models import FillModel
 from nautilus_trader.backtest.models import LatencyModel
+from nautilus_trader.backtest.models import MakerTakerFeeModel
 from nautilus_trader.common.component import MessageBus
 from nautilus_trader.common.component import TestClock
 from nautilus_trader.common.enums import ComponentState
@@ -50,6 +51,7 @@ from nautilus_trader.model.enums import TriggerType
 from nautilus_trader.model.identifiers import ClientId
 from nautilus_trader.model.identifiers import StrategyId
 from nautilus_trader.model.identifiers import Venue
+from nautilus_trader.model.identifiers import VenueOrderId
 from nautilus_trader.model.objects import Money
 from nautilus_trader.model.objects import Price
 from nautilus_trader.model.objects import Quantity
@@ -125,6 +127,7 @@ class TestStrategy:
             instruments=[_USDJPY_SIM],
             modules=[],
             fill_model=FillModel(),
+            fee_model=MakerTakerFeeModel(),
             clock=self.clock,
             latency_model=LatencyModel(0),
             support_contingent_orders=False,
@@ -1599,7 +1602,7 @@ class TestStrategy:
         position = self.cache.positions_open()[0]
 
         # Act
-        strategy.close_position(position, tags="EXIT")
+        strategy.close_position(position, tags=["EXIT"])
         self.exchange.process(0)
 
         # Assert
@@ -1608,7 +1611,7 @@ class TestStrategy:
         orders = self.cache.orders(instrument_id=_USDJPY_SIM.id)
         for order in orders:
             if order.side == OrderSide.SELL:
-                assert order.tags == "EXIT"
+                assert order.tags == ["EXIT"]
 
     def test_close_all_positions(self) -> None:
         # Arrange
@@ -1640,7 +1643,7 @@ class TestStrategy:
         self.exchange.process(0)
 
         # Act
-        strategy.close_all_positions(_USDJPY_SIM.id, tags="EXIT")
+        strategy.close_all_positions(_USDJPY_SIM.id, tags=["EXIT"])
         self.exchange.process(0)
 
         # Assert
@@ -1650,7 +1653,7 @@ class TestStrategy:
         orders = self.cache.orders(instrument_id=_USDJPY_SIM.id)
         for order in orders:
             if order.side == OrderSide.SELL:
-                assert order.tags == "EXIT"
+                assert order.tags == ["EXIT"]
 
     @pytest.mark.parametrize(
         ("contingency_type"),
@@ -1836,7 +1839,9 @@ class TestStrategy:
         strategy.submit_order_list(bracket)
 
         self.exec_engine.process(TestEventStubs.order_filled(entry_order, _USDJPY_SIM))
-        self.exec_engine.process(TestEventStubs.order_filled(sl_order, _USDJPY_SIM))
+        self.exec_engine.process(
+            TestEventStubs.order_filled(sl_order, _USDJPY_SIM, venue_order_id=VenueOrderId("2")),
+        )
         self.exchange.process(0)
 
         # Assert
@@ -1889,7 +1894,9 @@ class TestStrategy:
         strategy.submit_order_list(bracket)
 
         self.exec_engine.process(TestEventStubs.order_filled(entry_order, _USDJPY_SIM))
-        self.exec_engine.process(TestEventStubs.order_filled(tp_order, _USDJPY_SIM))
+        self.exec_engine.process(
+            TestEventStubs.order_filled(tp_order, _USDJPY_SIM, venue_order_id=VenueOrderId("2")),
+        )
         self.exchange.process(0)
 
         # Assert

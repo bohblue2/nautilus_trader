@@ -21,18 +21,18 @@ use std::{
         atomic::Ordering,
         mpsc::{channel, Receiver, SendError, Sender},
     },
-    thread,
+    thread::{self, JoinHandle},
 };
 
 use indexmap::IndexMap;
 use log::{
-    debug, error, info,
     kv::{ToValue, Value},
-    set_boxed_logger, set_max_level, warn, Level, LevelFilter, Log, STATIC_MAX_LEVEL,
+    set_boxed_logger, set_max_level, Level, LevelFilter, Log, STATIC_MAX_LEVEL,
 };
 use nautilus_core::{
     datetime::unix_nanos_to_iso8601,
-    time::{get_atomic_clock_realtime, get_atomic_clock_static, UnixNanos},
+    nanos::UnixNanos,
+    time::{get_atomic_clock_realtime, get_atomic_clock_static},
     uuid::UUID4,
 };
 use nautilus_model::identifiers::trader_id::TraderId;
@@ -76,6 +76,7 @@ impl Default for LoggerConfig {
 }
 
 impl LoggerConfig {
+    #[must_use]
     pub fn new(
         stdout_level: LevelFilter,
         fileout_level: LevelFilter,
@@ -92,6 +93,7 @@ impl LoggerConfig {
         }
     }
 
+    #[must_use]
     pub fn from_spec(spec: &str) -> Self {
         let Self {
             mut stdout_level,
@@ -129,9 +131,10 @@ impl LoggerConfig {
         }
     }
 
+    #[must_use]
     pub fn from_env() -> Self {
         match env::var("NAUTILUS_LOG") {
-            Ok(spec) => LoggerConfig::from_spec(&spec),
+            Ok(spec) => Self::from_spec(&spec),
             Err(e) => panic!("Error parsing `LoggerConfig` spec: {e}"),
         }
     }
@@ -191,8 +194,9 @@ pub struct LogLineWrapper {
 }
 
 impl LogLineWrapper {
+    #[must_use]
     pub fn new(line: LogLine, trader_id: Ustr, timestamp: UnixNanos) -> Self {
-        LogLineWrapper {
+        Self {
             line,
             cache: None,
             colored: None,
@@ -209,7 +213,7 @@ impl LogLineWrapper {
                 self.line.level,
                 self.trader_id,
                 &self.line.component,
-                &self.line.message
+                &self.line.message,
             )
         })
     }
@@ -223,11 +227,12 @@ impl LogLineWrapper {
                 self.line.level,
                 self.trader_id,
                 &self.line.component,
-                &self.line.message
+                &self.line.message,
             )
         })
     }
 
+    #[must_use]
     pub fn get_json(&self) -> String {
         let json_string =
             serde_json::to_string(&self).expect("Error serializing log event to string");
@@ -267,16 +272,16 @@ impl Log for Logger {
                 .get("color".into())
                 .and_then(|v| v.to_u64().map(|v| (v as u8).into()))
                 .unwrap_or(LogColor::Normal);
-            let component = key_values
-                .get("component".into())
-                .map(|v| Ustr::from(&v.to_string()))
-                .unwrap_or_else(|| Ustr::from(record.metadata().target()));
+            let component = key_values.get("component".into()).map_or_else(
+                || Ustr::from(record.metadata().target()),
+                |v| Ustr::from(&v.to_string()),
+            );
 
             let line = LogLine {
                 level: record.level(),
                 color,
                 component,
-                message: format!("{}", record.args()).to_string(),
+                message: format!("{}", record.args()),
             };
             if let Err(SendError(LogEvent::Log(line))) = self.tx.send(LogEvent::Log(line)) {
                 eprintln!("Error sending log event: {line}");
@@ -298,7 +303,7 @@ impl Logger {
         file_config: FileWriterConfig,
     ) -> LogGuard {
         let config = LoggerConfig::from_env();
-        Logger::init_with_config(trader_id, instance_id, config, file_config)
+        Self::init_with_config(trader_id, instance_id, config, file_config)
     }
 
     #[must_use]
@@ -318,23 +323,26 @@ impl Logger {
         let print_config = config.print_config;
         if print_config {
             println!("STATIC_MAX_LEVEL={STATIC_MAX_LEVEL}");
-            println!("Logger initialized with {:?} {:?}", config, file_config);
+            println!("Logger initialized with {config:?} {file_config:?}");
         }
 
+        let mut handle: Option<JoinHandle<()>> = None;
         match set_boxed_logger(Box::new(logger)) {
-            Ok(_) => {
-                let _join_handle = thread::Builder::new()
-                    .name("logging".to_string())
-                    .spawn(move || {
-                        Self::handle_messages(
-                            trader_id.to_string(),
-                            instance_id.to_string(),
-                            config,
-                            file_config,
-                            rx,
-                        );
-                    })
-                    .expect("Error spawning `logging` thread");
+            Ok(()) => {
+                handle = Some(
+                    thread::Builder::new()
+                        .name("logging".to_string())
+                        .spawn(move || {
+                            Self::handle_messages(
+                                trader_id.to_string(),
+                                instance_id.to_string(),
+                                config,
+                                file_config,
+                                rx,
+                            );
+                        })
+                        .expect("Error spawning `logging` thread"),
+                );
 
                 let max_level = log::LevelFilter::Debug;
                 set_max_level(max_level);
@@ -343,11 +351,11 @@ impl Logger {
                 }
             }
             Err(e) => {
-                eprintln!("Cannot set logger because of error: {e}")
+                eprintln!("Cannot set logger because of error: {e}");
             }
         }
 
-        LogGuard::new()
+        LogGuard::new(handle)
     }
 
     fn handle_messages(
@@ -358,7 +366,7 @@ impl Logger {
         rx: Receiver<LogEvent>,
     ) {
         if config.print_config {
-            println!("Logger thread `handle_messages` initialized")
+            println!("Logger thread `handle_messages` initialized");
         }
 
         let LoggerConfig {
@@ -377,7 +385,7 @@ impl Logger {
 
         // Conditionally create file writer based on fileout_level
         let mut file_writer_opt = if fileout_level != LevelFilter::Off {
-            FileWriter::new(trader_id.clone(), instance_id, file_config, fileout_level)
+            FileWriter::new(trader_id, instance_id, file_config, fileout_level)
         } else {
             None
         };
@@ -447,16 +455,16 @@ pub fn log(level: LogLevel, color: LogColor, component: Ustr, message: &str) {
     match level {
         LogLevel::Off => {}
         LogLevel::Debug => {
-            debug!(component = component.to_value(), color = color; "{}", message);
+            log::debug!(component = component.to_value(), color = color; "{}", message);
         }
         LogLevel::Info => {
-            info!(component = component.to_value(), color = color; "{}", message);
+            log::info!(component = component.to_value(), color = color; "{}", message);
         }
         LogLevel::Warning => {
-            warn!(component = component.to_value(), color = color; "{}", message);
+            log::warn!(component = component.to_value(), color = color; "{}", message);
         }
         LogLevel::Error => {
-            error!(component = component.to_value(), color = color; "{}", message);
+            log::error!(component = component.to_value(), color = color; "{}", message);
         }
     }
 }
@@ -466,23 +474,29 @@ pub fn log(level: LogLevel, color: LogColor, component: Ustr, message: &str) {
     pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common")
 )]
 #[derive(Debug)]
-pub struct LogGuard {}
+pub struct LogGuard {
+    handle: Option<JoinHandle<()>>,
+}
 
 impl LogGuard {
-    pub fn new() -> Self {
-        LogGuard {}
+    #[must_use]
+    pub fn new(handle: Option<JoinHandle<()>>) -> Self {
+        Self { handle }
     }
 }
 
 impl Default for LogGuard {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
 impl Drop for LogGuard {
     fn drop(&mut self) {
         log::logger().flush();
+        if let Some(handle) = self.handle.take() {
+            handle.join().expect("Error joining logging handle");
+        }
     }
 }
 
@@ -541,7 +555,7 @@ mod tests {
                 is_colored: true,
                 print_config: false,
             }
-        )
+        );
     }
 
     #[rstest]
@@ -556,7 +570,7 @@ mod tests {
                 is_colored: false,
                 print_config: true,
             }
-        )
+        );
     }
 
     #[rstest]

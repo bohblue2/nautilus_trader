@@ -30,6 +30,7 @@ from ibapi.order_state import OrderState as IBOrderState
 from nautilus_trader.adapters.interactive_brokers.client import InteractiveBrokersClient
 from nautilus_trader.adapters.interactive_brokers.client.common import IBPosition
 from nautilus_trader.adapters.interactive_brokers.common import IB_VENUE
+from nautilus_trader.adapters.interactive_brokers.common import IBOrderTags
 from nautilus_trader.adapters.interactive_brokers.config import InteractiveBrokersExecClientConfig
 from nautilus_trader.adapters.interactive_brokers.parsing.execution import MAP_ORDER_ACTION
 from nautilus_trader.adapters.interactive_brokers.parsing.execution import MAP_ORDER_FIELDS
@@ -120,6 +121,8 @@ class InteractiveBrokersExecutionClient(LiveExecutionClient):
         Client ID used to connect TWS/Gateway.
     config : InteractiveBrokersExecClientConfig, optional
         The configuration for the instance.
+    name : str, optional
+        The custom client ID.
 
     """
 
@@ -134,11 +137,12 @@ class InteractiveBrokersExecutionClient(LiveExecutionClient):
         instrument_provider: InteractiveBrokersInstrumentProvider,
         ibg_client_id: int,
         config: InteractiveBrokersExecClientConfig,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             loop=loop,
             # client_id=ClientId(f"{IB_VENUE.value}-{ibg_client_id:03d}"), # TODO: Fix account_id.get_id()
-            client_id=ClientId(f"{IB_VENUE.value}"),
+            client_id=ClientId(name or f"{IB_VENUE.value}"),
             venue=IB_VENUE,
             oms_type=OmsType.NETTING,
             instrument_provider=instrument_provider,
@@ -526,20 +530,20 @@ class InteractiveBrokersExecutionClient(LiveExecutionClient):
             return ib_order
 
     def _attach_order_tags(self, ib_order: IBOrder, order: Order) -> IBOrder:
-        try:
-            tags: dict = json.loads(order.tags)
-            for tag in tags:
-                if tag == "conditions":
-                    for condition in tags[tag]:
-                        pass  # TODO:
-                else:
-                    setattr(ib_order, tag, tags[tag])
-            return ib_order
-        except (json.JSONDecodeError, TypeError):
-            self._log.warning(
-                f"{order.client_order_id} {order.tags=} ignored, must be valid IBOrderTags.value",
-            )
-            return ib_order
+        tags: dict = {}
+        for ot in order.tags:
+            if ot.startswith("IBOrderTags:"):
+                tags = IBOrderTags.parse(ot.replace("IBOrderTags:", "")).dict()
+                break
+
+        for tag in tags:
+            if tag == "conditions":
+                for condition in tags[tag]:
+                    pass  # TODO:
+            else:
+                setattr(ib_order, tag, tags[tag])
+
+        return ib_order
 
     async def _submit_order(self, command: SubmitOrder) -> None:
         PyCondition.type(command, SubmitOrder, "command")

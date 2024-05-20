@@ -13,18 +13,19 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! A `BookOrder` for use with the `OrderBook` and `OrderBookDelta` data type.
+
 use std::{
-    fmt::{Display, Formatter},
+    fmt::{Debug, Display},
     hash::{Hash, Hasher},
 };
 
 use nautilus_core::serialization::Serializable;
 use serde::{Deserialize, Serialize};
 
-use super::{quote::QuoteTick, trade::TradeTick};
 use crate::{
     enums::OrderSide,
-    orderbook::{book::BookIntegrityError, ladder::BookPrice},
+    orderbook::{error::BookIntegrityError, ladder::BookPrice},
     types::{price::Price, quantity::Quantity},
 };
 
@@ -45,7 +46,7 @@ pub const NULL_ORDER: BookOrder = BookOrder {
 
 /// Represents an order in a book.
 #[repr(C)]
-#[derive(Clone, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "python",
     pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
@@ -91,41 +92,6 @@ impl BookOrder {
             _ => panic!("{}", BookIntegrityError::NoOrderSide),
         }
     }
-
-    #[must_use]
-    pub fn from_quote_tick(tick: &QuoteTick, side: OrderSide) -> Self {
-        match side {
-            OrderSide::Buy => Self::new(
-                OrderSide::Buy,
-                tick.bid_price,
-                tick.bid_size,
-                tick.bid_price.raw as u64,
-            ),
-            OrderSide::Sell => Self::new(
-                OrderSide::Sell,
-                tick.ask_price,
-                tick.ask_size,
-                tick.ask_price.raw as u64,
-            ),
-            _ => panic!("{}", BookIntegrityError::NoOrderSide),
-        }
-    }
-
-    #[must_use]
-    pub fn from_trade_tick(tick: &TradeTick, side: OrderSide) -> Self {
-        match side {
-            OrderSide::Buy => {
-                Self::new(OrderSide::Buy, tick.price, tick.size, tick.price.raw as u64)
-            }
-            OrderSide::Sell => Self::new(
-                OrderSide::Sell,
-                tick.price,
-                tick.size,
-                tick.price.raw as u64,
-            ),
-            _ => panic!("{}", BookIntegrityError::NoOrderSide),
-        }
-    }
 }
 
 impl Default for BookOrder {
@@ -146,38 +112,31 @@ impl Hash for BookOrder {
     }
 }
 
+impl Debug for BookOrder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}(side={}, price={}, size={}, order_id={})",
+            stringify!(BookOrder),
+            self.side,
+            self.price,
+            self.size,
+            self.order_id,
+        )
+    }
+}
+
 impl Display for BookOrder {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{},{},{},{}",
-            self.price, self.size, self.side, self.order_id,
+            self.side, self.price, self.size, self.order_id,
         )
     }
 }
 
 impl Serializable for BookOrder {}
-
-////////////////////////////////////////////////////////////////////////////////
-// Stubs
-////////////////////////////////////////////////////////////////////////////////
-#[cfg(feature = "stubs")]
-pub mod stubs {
-    use rstest::fixture;
-
-    use super::{BookOrder, OrderSide};
-    use crate::types::{price::Price, quantity::Quantity};
-
-    #[fixture]
-    pub fn stub_book_order() -> BookOrder {
-        let price = Price::from("100.00");
-        let size = Quantity::from("10");
-        let side = OrderSide::Buy;
-        let order_id = 123_456;
-
-        BookOrder::new(side, price, size, order_id)
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tests
@@ -186,11 +145,7 @@ pub mod stubs {
 mod tests {
     use rstest::rstest;
 
-    use super::{stubs::*, *};
-    use crate::{
-        enums::AggressorSide,
-        identifiers::{instrument_id::InstrumentId, trade_id::TradeId},
-    };
+    use super::*;
 
     #[rstest]
     fn test_new() {
@@ -250,98 +205,26 @@ mod tests {
     }
 
     #[rstest]
+    fn test_debug() {
+        let price = Price::from("100.00");
+        let size = Quantity::from(10);
+        let side = OrderSide::Buy;
+        let order_id = 123_456;
+        let order = BookOrder::new(side, price, size, order_id);
+        let result = format!("{order:?}");
+        let expected = "BookOrder(side=BUY, price=100.00, size=10, order_id=123456)";
+        assert_eq!(result, expected);
+    }
+
+    #[rstest]
     fn test_display() {
         let price = Price::from("100.00");
         let size = Quantity::from(10);
         let side = OrderSide::Buy;
         let order_id = 123_456;
-
         let order = BookOrder::new(side, price, size, order_id);
-        let display = format!("{order}");
-
-        let expected = format!("{price},{size},{side},{order_id}");
-        assert_eq!(display, expected);
-    }
-
-    #[rstest]
-    #[case(OrderSide::Buy)]
-    #[case(OrderSide::Sell)]
-    fn test_from_quote_tick(#[case] side: OrderSide) {
-        let tick = QuoteTick::new(
-            InstrumentId::from("ETHUSDT-PERP.BINANCE"),
-            Price::from("5000.00"),
-            Price::from("5001.00"),
-            Quantity::from("100.000"),
-            Quantity::from("99.000"),
-            0,
-            0,
-        )
-        .unwrap();
-
-        let book_order = BookOrder::from_quote_tick(&tick, side);
-
-        assert_eq!(book_order.side, side);
-        assert_eq!(
-            book_order.price,
-            match side {
-                OrderSide::Buy => tick.bid_price,
-                OrderSide::Sell => tick.ask_price,
-                _ => panic!("Invalid test"),
-            }
-        );
-        assert_eq!(
-            book_order.size,
-            match side {
-                OrderSide::Buy => tick.bid_size,
-                OrderSide::Sell => tick.ask_size,
-                _ => panic!("Invalid test"),
-            }
-        );
-        assert_eq!(
-            book_order.order_id,
-            match side {
-                OrderSide::Buy => tick.bid_price.raw as u64,
-                OrderSide::Sell => tick.ask_price.raw as u64,
-                _ => panic!("Invalid test"),
-            }
-        );
-    }
-
-    #[rstest]
-    #[case(OrderSide::Buy)]
-    #[case(OrderSide::Sell)]
-    fn test_from_trade_tick(#[case] side: OrderSide) {
-        let tick = TradeTick::new(
-            InstrumentId::from("ETHUSDT-PERP.BINANCE"),
-            Price::from("5000.00"),
-            Quantity::from("100.00"),
-            AggressorSide::Buyer,
-            TradeId::new("1").unwrap(),
-            0,
-            0,
-        );
-
-        let book_order = BookOrder::from_trade_tick(&tick, side);
-
-        assert_eq!(book_order.side, side);
-        assert_eq!(book_order.price, tick.price);
-        assert_eq!(book_order.size, tick.size);
-        assert_eq!(book_order.order_id, tick.price.raw as u64);
-    }
-
-    #[rstest]
-    fn test_json_serialization(stub_book_order: BookOrder) {
-        let order = stub_book_order;
-        let serialized = order.as_json_bytes().unwrap();
-        let deserialized = BookOrder::from_json_bytes(serialized).unwrap();
-        assert_eq!(deserialized, order);
-    }
-
-    #[rstest]
-    fn test_msgpack_serialization(stub_book_order: BookOrder) {
-        let order = stub_book_order;
-        let serialized = order.as_msgpack_bytes().unwrap();
-        let deserialized = BookOrder::from_msgpack_bytes(serialized).unwrap();
-        assert_eq!(deserialized, order);
+        let result = format!("{order}");
+        let expected = "BUY,100.00,10,123456";
+        assert_eq!(result, expected);
     }
 }

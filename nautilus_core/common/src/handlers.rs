@@ -13,6 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Provides common message handlers.
+
 #[cfg(not(feature = "python"))]
 use std::ffi::c_char;
 use std::{fmt, sync::Arc};
@@ -37,7 +39,6 @@ pub struct SafeMessageCallback {
 unsafe impl Send for SafeMessageCallback {}
 unsafe impl Sync for SafeMessageCallback {}
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct SafeTimeEventCallback {
     pub callback: Arc<dyn Fn(TimeEvent) + Send>,

@@ -37,11 +37,19 @@ from nautilus_trader.model.tick_scheme.base cimport TICK_SCHEMES
 from nautilus_trader.model.tick_scheme.base cimport get_tick_scheme
 
 
+EXPIRING_INSTRUMENT_TYPES = {
+    InstrumentClass.FUTURE,
+    InstrumentClass.FUTURE_SPREAD,
+    InstrumentClass.OPTION,
+    InstrumentClass.OPTION_SPREAD,
+}
+
+
 cdef class Instrument(Data):
     """
     The base class for all instruments.
 
-    Represents a tradable financial market instrument. This class can be used to
+    Represents a tradable instrument. This class can be used to
     define an instrument, or act as a parent class for more specific instruments.
 
     Parameters
@@ -56,7 +64,7 @@ cdef class Instrument(Data):
         The instrument class.
     quote_currency : Currency
         The quote currency.
-    is_inverse : Currency
+    is_inverse : bool
         If the instrument costing is inverse (quantity expressed in quote currency units).
     price_precision : int
         The price decimal precision.
@@ -233,7 +241,7 @@ cdef class Instrument(Data):
     def __hash__(self) -> int:
         return hash(self.id)
 
-    def __repr__(self) -> str:  # TODO(cs): tick_scheme_name pending
+    def __repr__(self) -> str:  # TODO: tick_scheme_name pending
         return (
             f"{type(self).__name__}"
             f"(id={self.id.to_str()}, "
@@ -310,8 +318,8 @@ cdef class Instrument(Data):
             "lot_size": str(obj.lot_size) if obj.lot_size is not None else None,
             "max_quantity": str(obj.max_quantity) if obj.max_quantity is not None else None,
             "min_quantity": str(obj.min_quantity) if obj.min_quantity is not None else None,
-            "max_notional": obj.max_notional.to_str() if obj.max_notional is not None else None,
-            "min_notional": obj.min_notional.to_str() if obj.min_notional is not None else None,
+            "max_notional": str(obj.max_notional) if obj.max_notional is not None else None,
+            "min_notional": str(obj.min_notional) if obj.min_notional is not None else None,
             "max_price": str(obj.max_price) if obj.max_price is not None else None,
             "min_price": str(obj.min_price) if obj.min_price is not None else None,
             "margin_init": str(obj.margin_init),

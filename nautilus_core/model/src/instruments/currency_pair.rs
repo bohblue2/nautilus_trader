@@ -13,21 +13,19 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::{
-    any::Any,
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
 
 use nautilus_core::{
     correctness::{check_equal_u8, check_positive_i64, check_positive_u64},
-    time::UnixNanos,
+    nanos::UnixNanos,
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use ustr::Ustr;
 
-use super::Instrument;
+use super::{any::InstrumentAny, Instrument};
 use crate::{
-    enums::{AssetClass, InstrumentClass},
+    enums::{AssetClass, InstrumentClass, OptionKind},
     identifiers::{instrument_id::InstrumentId, symbol::Symbol},
     types::{currency::Currency, money::Money, price::Price, quantity::Quantity},
 };
@@ -144,6 +142,10 @@ impl Hash for CurrencyPair {
 }
 
 impl Instrument for CurrencyPair {
+    fn into_any(self) -> InstrumentAny {
+        InstrumentAny::CurrencyPair(self)
+    }
+
     fn id(&self) -> InstrumentId {
         self.id
     }
@@ -159,6 +161,9 @@ impl Instrument for CurrencyPair {
     fn instrument_class(&self) -> InstrumentClass {
         InstrumentClass::Spot
     }
+    fn underlying(&self) -> Option<Ustr> {
+        None
+    }
 
     fn quote_currency(&self) -> Currency {
         self.quote_currency
@@ -170,6 +175,9 @@ impl Instrument for CurrencyPair {
 
     fn settlement_currency(&self) -> Currency {
         self.quote_currency
+    }
+    fn isin(&self) -> Option<Ustr> {
+        None
     }
 
     fn is_inverse(&self) -> bool {
@@ -225,10 +233,6 @@ impl Instrument for CurrencyPair {
         self.ts_init
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn margin_init(&self) -> Decimal {
         self.margin_init
     }
@@ -243,6 +247,34 @@ impl Instrument for CurrencyPair {
 
     fn maker_fee(&self) -> Decimal {
         self.maker_fee
+    }
+
+    fn option_kind(&self) -> Option<OptionKind> {
+        None
+    }
+
+    fn exchange(&self) -> Option<Ustr> {
+        None
+    }
+
+    fn strike_price(&self) -> Option<Price> {
+        None
+    }
+
+    fn activation_ns(&self) -> Option<UnixNanos> {
+        None
+    }
+
+    fn expiration_ns(&self) -> Option<UnixNanos> {
+        None
+    }
+
+    fn max_notional(&self) -> Option<Money> {
+        self.max_notional
+    }
+
+    fn min_notional(&self) -> Option<Money> {
+        self.min_notional
     }
 }
 

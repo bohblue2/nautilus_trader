@@ -18,7 +18,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use nautilus_core::{python::serialization::from_dict_pyo3, time::UnixNanos};
+use nautilus_core::python::serialization::from_dict_pyo3;
 use nautilus_model::{
     enums::OrderSide,
     identifiers::instrument_id::InstrumentId,
@@ -47,10 +47,6 @@ impl DatabentoImbalance {
         hasher.finish() as isize
     }
 
-    fn __str__(&self) -> String {
-        self.__repr__()
-    }
-
     fn __repr__(&self) -> String {
         format!(
             "{}(instrument_id={}, ref_price={}, cont_book_clr_price={}, auct_interest_clr_price={}, paired_qty={}, total_imbalance_qty={}, side={}, significant_imbalance={}, ts_event={}, ts_recv={}, ts_init={})",
@@ -67,6 +63,10 @@ impl DatabentoImbalance {
             self.ts_recv,
             self.ts_init,
         )
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
     }
 
     #[getter]
@@ -119,20 +119,20 @@ impl DatabentoImbalance {
 
     #[getter]
     #[pyo3(name = "ts_event")]
-    fn py_ts_event(&self) -> UnixNanos {
-        self.ts_event
+    fn py_ts_event(&self) -> u64 {
+        self.ts_event.as_u64()
     }
 
     #[getter]
     #[pyo3(name = "ts_recv")]
-    fn py_ts_recv(&self) -> UnixNanos {
-        self.ts_recv
+    fn py_ts_recv(&self) -> u64 {
+        self.ts_recv.as_u64()
     }
 
     #[getter]
     #[pyo3(name = "ts_init")]
-    fn py_ts_init(&self) -> UnixNanos {
-        self.ts_init
+    fn py_ts_init(&self) -> u64 {
+        self.ts_init.as_u64()
     }
 
     #[staticmethod]
@@ -166,10 +166,6 @@ impl DatabentoStatistics {
         hasher.finish() as isize
     }
 
-    fn __str__(&self) -> String {
-        self.__repr__()
-    }
-
     fn __repr__(&self) -> String {
         format!(
             "{}(instrument_id={}, stat_type={}, update_action={}, price={}, quantity={}, channel_id={}, stat_flags={}, sequence={}, ts_ref={}, ts_in_delta={}, ts_event={}, ts_recv={}, ts_init={})",
@@ -188,6 +184,10 @@ impl DatabentoStatistics {
             self.ts_recv,
             self.ts_init,
         )
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
     }
 
     #[getter]
@@ -240,8 +240,8 @@ impl DatabentoStatistics {
 
     #[getter]
     #[pyo3(name = "ts_ref")]
-    fn py_ts_ref(&self) -> UnixNanos {
-        self.ts_ref
+    fn py_ts_ref(&self) -> u64 {
+        self.ts_ref.as_u64()
     }
 
     #[getter]
@@ -252,20 +252,20 @@ impl DatabentoStatistics {
 
     #[getter]
     #[pyo3(name = "ts_event")]
-    fn py_ts_event(&self) -> UnixNanos {
-        self.ts_event
+    fn py_ts_event(&self) -> u64 {
+        self.ts_event.as_u64()
     }
 
     #[pyo3(name = "ts_recv")]
     #[getter]
-    fn py_ts_recv(&self) -> UnixNanos {
-        self.ts_recv
+    fn py_ts_recv(&self) -> u64 {
+        self.ts_recv.as_u64()
     }
 
     #[pyo3(name = "ts_init")]
     #[getter]
-    fn py_ts_init(&self) -> UnixNanos {
-        self.ts_init
+    fn py_ts_init(&self) -> u64 {
+        self.ts_init.as_u64()
     }
 
     #[staticmethod]

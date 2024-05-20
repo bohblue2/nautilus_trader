@@ -182,7 +182,7 @@ cdef class Portfolio(PortfolioFacade):
             if instrument is None:
                 self._log.error(
                     f"Cannot update initial (order) margin: "
-                    f"no instrument found for {instrument.id}."
+                    f"no instrument found for {instrument.id}"
                 )
                 initialized = False
                 break
@@ -191,7 +191,7 @@ cdef class Portfolio(PortfolioFacade):
             if account is None:
                 self._log.error(
                     f"Cannot update initial (order) margin: "
-                    f"no account registered for {instrument.id.venue}."
+                    f"no account registered for {instrument.id.venue}"
                 )
                 initialized = False
                 break
@@ -212,7 +212,7 @@ cdef class Portfolio(PortfolioFacade):
 
         cdef int open_count = len(all_orders_open)
         self._log.info(
-            f"Initialized {open_count} open order{'' if open_count == 1 else 's'}.",
+            f"Initialized {open_count} open order{'' if open_count == 1 else 's'}",
             color=LogColor.BLUE if open_count else LogColor.NORMAL,
         )
 
@@ -259,7 +259,7 @@ cdef class Portfolio(PortfolioFacade):
             if account is None:
                 self._log.error(
                     f"Cannot update maintenance (position) margin: "
-                    f"no account registered for {instrument_id.venue}."
+                    f"no account registered for {instrument_id.venue}"
                 )
                 initialized = False
                 break
@@ -271,7 +271,7 @@ cdef class Portfolio(PortfolioFacade):
             if instrument is None:
                 self._log.error(
                     f"Cannot update maintenance (position) margin: "
-                    f"no instrument found for {instrument.id}."
+                    f"no instrument found for {instrument.id}"
                 )
                 initialized = False
                 break
@@ -290,7 +290,7 @@ cdef class Portfolio(PortfolioFacade):
 
         cdef int open_count = len(all_positions_open)
         self._log.info(
-            f"Initialized {open_count} open position{'' if open_count == 1 else 's'}.",
+            f"Initialized {open_count} open position{'' if open_count == 1 else 's'}",
             color=LogColor.BLUE if open_count else LogColor.NORMAL,
         )
 
@@ -324,7 +324,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot update tick: "
-                f"no account registered for {tick.instrument_id.venue}."
+                f"no account registered for {tick.instrument_id.venue}"
             )
             return  # No account registered
 
@@ -397,7 +397,7 @@ cdef class Portfolio(PortfolioFacade):
             account.apply(event)
             self._cache.update_account(account)
 
-        self._log.info(f"Updated {event}.")
+        self._log.info(f"Updated {event}")
 
     cpdef void update_order(self, OrderEvent event):
         """
@@ -432,7 +432,7 @@ cdef class Portfolio(PortfolioFacade):
         if order is None:
             self._log.error(
                 f"Cannot update order: "
-                f"{repr(event.client_order_id)} not found in the cache."
+                f"{repr(event.client_order_id)} not found in the cache"
             )
             return  # No order found
 
@@ -447,12 +447,18 @@ cdef class Portfolio(PortfolioFacade):
             )
             return  # No instrument found
 
+        cdef list[Position] positions_open
         cdef AccountState account_state = None
         if isinstance(event, OrderFilled):
-            account_state = self._accounts.update_balances(
+            self._accounts.update_balances(
                 account=account,
                 instrument=instrument,
                 fill=event,
+            )
+
+
+            self._unrealized_pnls[event.instrument_id] = self._calculate_unrealized_pnl(
+                instrument_id=event.instrument_id,
             )
 
         cdef list orders_open = self._cache.orders_open(
@@ -470,7 +476,7 @@ cdef class Portfolio(PortfolioFacade):
         )
 
         if account_state is None:
-            self._log.debug(f"Added pending calculation for {instrument.id}.")
+            self._log.debug(f"Added pending calculation for {instrument.id}")
             self._pending_calcs.add(instrument.id)
         else:
             self._msgbus.publish_c(
@@ -478,7 +484,7 @@ cdef class Portfolio(PortfolioFacade):
                 msg=account_state,
             )
 
-        self._log.debug(f"Updated {event}.")
+        self._log.debug(f"Updated {event}")
 
     cpdef void update_position(self, PositionEvent event):
         """
@@ -524,23 +530,12 @@ cdef class Portfolio(PortfolioFacade):
             )
             return  # No instrument found
 
-        cdef AccountState account_state = self._accounts.update_positions(
+        self._accounts.update_positions(
             account=account,
             instrument=instrument,
             positions_open=positions_open,
             ts_event=event.ts_event,
         )
-
-        if account_state is None:
-            self._log.debug(f"Added pending calculation for {instrument.id}.")
-            self._pending_calcs.add(instrument.id)
-        else:
-            self._msgbus.publish_c(
-                topic=f"events.account.{account.id}",
-                msg=account_state,
-            )
-
-        self._log.debug(f"Updated {event}.")
 
     def _reset(self) -> None:
         self._net_positions.clear()
@@ -557,11 +552,11 @@ cdef class Portfolio(PortfolioFacade):
         All stateful fields are reset to their initial value.
 
         """
-        self._log.debug(f"RESETTING...")
+        self._log.debug(f"RESETTING")
 
         self._reset()
 
-        self._log.info("READY.")
+        self._log.info("READY")
 
     def dispose(self) -> None:
         """
@@ -570,11 +565,11 @@ cdef class Portfolio(PortfolioFacade):
         All stateful fields are reset to their initial value.
 
         """
-        self._log.debug(f"DISPOSING...")
+        self._log.debug(f"DISPOSING")
 
         self._reset()
 
-        self._log.info("DISPOSED.")
+        self._log.info("DISPOSED")
 
 # -- QUERIES --------------------------------------------------------------------------------------
 
@@ -599,7 +594,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot get account: "
-                f"no account registered for {venue}."
+                f"no account registered for {venue}"
             )
 
         return account
@@ -624,7 +619,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot get balances locked: "
-                f"no account registered for {venue}."
+                f"no account registered for {venue}"
             )
             return None
 
@@ -650,7 +645,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot get initial (order) margins: "
-                f"no account registered for {venue}."
+                f"no account registered for {venue}"
             )
             return None
 
@@ -679,7 +674,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot get maintenance (position) margins: "
-                f"no account registered for {venue}."
+                f"no account registered for {venue}"
             )
             return None
 
@@ -749,7 +744,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot calculate net exposures: "
-                f"no account registered for {venue}."
+                f"no account registered for {venue}"
             )
             return None  # Cannot calculate
 
@@ -770,15 +765,22 @@ cdef class Portfolio(PortfolioFacade):
             if instrument is None:
                 self._log.error(
                     f"Cannot calculate net exposures: "
-                    f"no instrument for {position.instrument_id}."
+                    f"no instrument for {position.instrument_id}"
                 )
                 return None  # Cannot calculate
+
+            if position.side == PositionSide.FLAT:
+                self._log.error(
+                    f"Cannot calculate net exposures: "
+                    f"position is flat for {position.instrument_id}"
+                )
+                continue  # Nothing to calculate
 
             last = self._get_last_price(position)
             if last is None:
                 self._log.error(
                     f"Cannot calculate net exposures: "
-                    f"no prices for {position.instrument_id}."
+                    f"no prices for {position.instrument_id}"
                 )
                 continue  # Cannot calculate
 
@@ -791,7 +793,7 @@ cdef class Portfolio(PortfolioFacade):
             if xrate == 0.0:
                 self._log.error(
                     f"Cannot calculate net exposures: "
-                    f"insufficient data for {instrument.get_settlement_currency()}/{account.base_currency}."
+                    f"insufficient data for {instrument.get_settlement_currency()}/{account.base_currency}"
                 )
                 return None  # Cannot calculate
 
@@ -858,7 +860,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot calculate net exposure: "
-                f"no account registered for {instrument_id.venue}."
+                f"no account registered for {instrument_id.venue}"
             )
             return None  # Cannot calculate
 
@@ -866,7 +868,7 @@ cdef class Portfolio(PortfolioFacade):
         if instrument is None:
             self._log.error(
                 f"Cannot calculate net exposure: "
-                f"no instrument for {instrument_id}."
+                f"no instrument for {instrument_id}"
             )
             return None  # Cannot calculate
 
@@ -889,7 +891,7 @@ cdef class Portfolio(PortfolioFacade):
             if last is None:
                 self._log.error(
                     f"Cannot calculate net exposure: "
-                    f"no prices for {position.instrument_id}."
+                    f"no prices for {position.instrument_id}"
                 )
                 continue  # Cannot calculate
 
@@ -902,7 +904,7 @@ cdef class Portfolio(PortfolioFacade):
             if xrate == 0.0:
                 self._log.error(
                     f"Cannot calculate net exposure: "
-                    f"insufficient data for {instrument.get_settlement_currency()}/{account.base_currency}."
+                    f"insufficient data for {instrument.get_settlement_currency()}/{account.base_currency}"
                 )
                 return None  # Cannot calculate
 
@@ -1034,7 +1036,7 @@ cdef class Portfolio(PortfolioFacade):
         if account is None:
             self._log.error(
                 f"Cannot calculate unrealized PnL: "
-                f"no account registered for {instrument_id.venue}."
+                f"no account registered for {instrument_id.venue}"
             )
             return None  # Cannot calculate
 
@@ -1042,7 +1044,7 @@ cdef class Portfolio(PortfolioFacade):
         if instrument is None:
             self._log.error(
                 f"Cannot calculate unrealized PnL: "
-                f"no instrument for {instrument_id}."
+                f"no instrument for {instrument_id}"
             )
             return None  # Cannot calculate
 
@@ -1070,10 +1072,13 @@ cdef class Portfolio(PortfolioFacade):
             if position.instrument_id != instrument_id:
                 continue  # Nothing to calculate
 
+            if position.side == PositionSide.FLAT:
+                continue  # Nothing to calculate
+
             last = self._get_last_price(position)
             if last is None:
                 self._log.debug(
-                    f"Cannot calculate unrealized PnL: no prices for {instrument_id}."
+                    f"Cannot calculate unrealized PnL: no prices for {instrument_id}"
                 )
                 self._pending_calcs.add(instrument.id)
                 return None  # Cannot calculate
@@ -1090,7 +1095,7 @@ cdef class Portfolio(PortfolioFacade):
                 if xrate == 0.0:
                     self._log.debug(
                         f"Cannot calculate unrealized PnL: "
-                        f"insufficient data for {instrument.get_settlement_currency()}/{account.base_currency}."
+                        f"insufficient data for {instrument.get_settlement_currency()}/{account.base_currency}"
                     )
                     self._pending_calcs.add(instrument.id)
                     return None  # Cannot calculate
@@ -1102,19 +1107,24 @@ cdef class Portfolio(PortfolioFacade):
         return Money(total_pnl, currency)
 
     cdef Price _get_last_price(self, Position position):
-        cdef QuoteTick quote_tick = self._cache.quote_tick(position.instrument_id)
-        if quote_tick is not None:
-            if position.side == PositionSide.LONG:
-                return quote_tick.bid_price
-            elif position.side == PositionSide.SHORT:
-                return quote_tick.ask_price
-            else:  # pragma: no cover (design-time error)
-                raise RuntimeError(
-                    f"invalid `PositionSide`, was {position_side_to_str(position.side)}",
-                )
+        cdef PriceType price_type
+        if position.side == PositionSide.LONG:
+            price_type = PriceType.BID
+        elif position.side == PositionSide.SHORT:
+            price_type = PriceType.ASK
+        else:  # pragma: no cover (design-time error)
+            raise RuntimeError(
+                f"invalid `PositionSide`, was {position_side_to_str(position.side)}",
+            )
 
-        cdef TradeTick trade_tick = self._cache.trade_tick(position.instrument_id)
-        return trade_tick.price if trade_tick is not None else None
+        cdef Price price
+        return self._cache.price(
+            instrument_id=position.instrument_id,
+            price_type=price_type,
+        ) or self._cache.price(
+            instrument_id=position.instrument_id,
+            price_type=PriceType.LAST,
+        )
 
     cdef double _calculate_xrate_to_base(self, Account account, Instrument instrument, OrderSide side):
         if account.base_currency is not None:

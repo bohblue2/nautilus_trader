@@ -36,6 +36,7 @@ from nautilus_trader.model.enums import TriggerType
 from nautilus_trader.model.events import OrderFilled
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.instruments import Instrument
+from nautilus_trader.model.objects import Price
 from nautilus_trader.model.orders import MarketIfTouchedOrder
 from nautilus_trader.model.orders import TrailingStopMarketOrder
 from nautilus_trader.trading.strategy import Strategy
@@ -65,8 +66,8 @@ class EMACrossStopEntryConfig(StrategyConfig, frozen=True):
         The trailing offset amount.
     trigger_type : str
         The trailing stop trigger type (interpreted as `TriggerType`).
-    trade_size : str
-        The position size per trade (interpreted as Decimal).
+    trade_size : Decimal
+        The position size per trade.
     fast_ema_period : PositiveInt, default 10
         The fast EMA period.
     slow_ema_period : PositiveInt, default 20
@@ -74,12 +75,6 @@ class EMACrossStopEntryConfig(StrategyConfig, frozen=True):
     emulation_trigger : str, default 'NO_TRIGGER'
         The emulation trigger for submitting emulated orders.
         If 'NONE' then orders will not be emulated.
-    order_id_tag : str
-        The unique order ID tag for the strategy. Must be unique
-        amongst all running strategies for a particular trader ID.
-    oms_type : OmsType
-        The order management system type for the strategy. This will determine
-        how the `ExecutionEngine` handles position IDs (see docs).
 
     """
 
@@ -145,7 +140,7 @@ class EMACrossStopEntry(Strategy):
         self.atr = AverageTrueRange(config.atr_period)
 
         self.instrument: Instrument | None = None  # Initialized in `on_start()`
-        self.tick_size = None  # Initialized in `on_start()`
+        self.tick_size: Price | None = None  # Initialized in `on_start()`
 
         # Users order management variables
         self.entry = None
@@ -236,7 +231,7 @@ class EMACrossStopEntry(Strategy):
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
-                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]...",
+                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]",
                 color=LogColor.BLUE,
             )
             return  # Wait for indicators to warm up...
@@ -263,7 +258,11 @@ class EMACrossStopEntry(Strategy):
 
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
+            return
+
+        if not self.tick_size:
+            self.log.error("No tick size loaded")
             return
 
         order: MarketIfTouchedOrder = self.order_factory.market_if_touched(
@@ -274,7 +273,7 @@ class EMACrossStopEntry(Strategy):
             trigger_price=self.instrument.make_price(last_bar.high + (self.tick_size * 2)),
             emulation_trigger=self.emulation_trigger,
         )
-        # TODO(cs): Uncomment below order for development
+        # TODO: Uncomment below order for development
         # order: LimitIfTouchedOrder = self.order_factory.limit_if_touched(
         #     instrument_id=self.instrument_id,
         #     order_side=OrderSide.BUY,
@@ -298,7 +297,11 @@ class EMACrossStopEntry(Strategy):
 
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
+            return
+
+        if not self.tick_size:
+            self.log.error("No tick size loaded")
             return
 
         order: MarketIfTouchedOrder = self.order_factory.market_if_touched(
@@ -309,7 +312,7 @@ class EMACrossStopEntry(Strategy):
             trigger_price=self.instrument.make_price(last_bar.low - (self.tick_size * 2)),
             emulation_trigger=self.emulation_trigger,
         )
-        # TODO(cs): Uncomment below order for development
+        # TODO: Uncomment below order for development
         # order: LimitIfTouchedOrder = self.order_factory.limit_if_touched(
         #     instrument_id=self.instrument_id,
         #     order_side=OrderSide.SELL,
@@ -327,7 +330,7 @@ class EMACrossStopEntry(Strategy):
         Users simple trailing stop BUY for (``SHORT`` positions).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         offset = self.atr.value * self.trailing_atr_multiple
@@ -350,7 +353,7 @@ class EMACrossStopEntry(Strategy):
         Users simple trailing stop SELL for (LONG positions).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         offset = self.atr.value * self.trailing_atr_multiple

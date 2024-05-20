@@ -246,7 +246,7 @@ class TestEventsProviderPyo3:
             exec_algorithm_id=None,
             exec_algorithm_params=None,
             exec_spawn_id=None,
-            tags="ENTRY",
+            tags=["ENTRY"],
             ts_init=0,
             ts_event=0,
         )
@@ -483,7 +483,7 @@ class TestEventsProviderPyo3:
             order_side=order.side,
             order_type=order.order_type,
             last_qty=last_qty,
-            last_px=last_px or order.price,
+            last_px=last_px or order.price or Price.from_str("1.00000"),
             currency=instrument.quote_currency,
             commission=commission,
             liquidity_side=liquidity_side,

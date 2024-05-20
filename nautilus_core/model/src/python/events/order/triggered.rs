@@ -15,11 +15,9 @@
 
 use nautilus_core::{
     python::{serialization::from_dict_pyo3, to_pyvalue_err},
-    time::UnixNanos,
     uuid::UUID4,
 };
 use pyo3::{basic::CompareOp, prelude::*, types::PyDict};
-use rust_decimal::prelude::ToPrimitive;
 
 use crate::{
     events::order::triggered::OrderTriggered,
@@ -39,8 +37,8 @@ impl OrderTriggered {
         instrument_id: InstrumentId,
         client_order_id: ClientOrderId,
         event_id: UUID4,
-        ts_event: UnixNanos,
-        ts_init: UnixNanos,
+        ts_event: u64,
+        ts_init: u64,
         reconciliation: bool,
         venue_order_id: Option<VenueOrderId>,
         account_id: Option<AccountId>,
@@ -51,8 +49,8 @@ impl OrderTriggered {
             instrument_id,
             client_order_id,
             event_id,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
             reconciliation,
             venue_order_id,
             account_id,
@@ -69,32 +67,15 @@ impl OrderTriggered {
     }
 
     fn __repr__(&self) -> String {
-        format!(
-            "{}(trader_id={}, strategy_id={}, instrument_id={}, client_order_id={}, venue_order_id={}, account_id={}, event_id={}, ts_event={}, ts_init={})",
-            stringify!(OrderTriggered),
-            self.trader_id,
-            self.strategy_id,
-            self.instrument_id,
-            self.client_order_id,
-            self.venue_order_id.map_or_else(|| "None".to_string(), |venue_order_id| format!("{venue_order_id}")),
-            self.account_id.map_or_else(|| "None".to_string(), |account_id| format!("{account_id}")),
-            self.event_id,
-            self.ts_event,
-            self.ts_init
-        )
+        format!("{:?}", self)
     }
 
     fn __str__(&self) -> String {
-        format!(
-            "{}(instrument_id={}, client_order_id={}, venue_order_id={}, account_id={}, ts_event={})",
-            stringify!(OrderTriggered),
-            self.instrument_id,
-            self.client_order_id,
-            self.venue_order_id.map_or_else(|| "None".to_string(), |venue_order_id| format!("{venue_order_id}"))
-            ,
-            self.account_id.map_or_else(|| "None".to_string(), |account_id| format!("{account_id}")),
-            self.ts_event,
-        )
+        self.to_string()
+    }
+
+    fn type_str(&self) -> &str {
+        stringify!(OrderTriggered)
     }
 
     #[staticmethod]
@@ -106,13 +87,14 @@ impl OrderTriggered {
     #[pyo3(name = "to_dict")]
     fn py_to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
+        dict.set_item("type", stringify!(OrderTriggered));
         dict.set_item("trader_id", self.trader_id.to_string())?;
         dict.set_item("strategy_id", self.strategy_id.to_string())?;
         dict.set_item("instrument_id", self.instrument_id.to_string())?;
         dict.set_item("client_order_id", self.client_order_id.to_string())?;
         dict.set_item("event_id", self.event_id.to_string())?;
-        dict.set_item("ts_event", self.ts_event.to_u64())?;
-        dict.set_item("ts_init", self.ts_init.to_u64())?;
+        dict.set_item("ts_event", self.ts_event.as_u64())?;
+        dict.set_item("ts_init", self.ts_init.as_u64())?;
         dict.set_item("reconciliation", self.reconciliation)?;
         match self.venue_order_id {
             Some(venue_order_id) => dict.set_item("venue_order_id", venue_order_id.to_string())?,

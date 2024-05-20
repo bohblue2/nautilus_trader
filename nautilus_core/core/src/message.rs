@@ -13,7 +13,9 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use crate::{time::UnixNanos, uuid::UUID4};
+//! Defines common message types.
+
+use crate::{nanos::UnixNanos, uuid::UUID4};
 
 #[derive(Debug, Clone)]
 pub enum Message {

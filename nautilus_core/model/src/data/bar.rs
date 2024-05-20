@@ -13,6 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Bar aggregate structures, data types and functionality.
+
 use std::{
     collections::HashMap,
     fmt::{Debug, Display, Formatter},
@@ -20,22 +22,22 @@ use std::{
     str::FromStr,
 };
 
+use derive_builder::Builder;
 use indexmap::IndexMap;
-use nautilus_core::{serialization::Serializable, time::UnixNanos};
-#[cfg(feature = "python")]
-use pyo3::{PyAny, PyResult};
+use nautilus_core::{nanos::UnixNanos, serialization::Serializable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
     enums::{AggregationSource, BarAggregation, PriceType},
     identifiers::instrument_id::InstrumentId,
+    polymorphism::GetTsInit,
     types::{price::Price, quantity::Quantity},
 };
 
 /// Represents a bar aggregation specification including a step, aggregation
 /// method/rule and price type.
 #[repr(C)]
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize, Builder)]
 #[cfg_attr(
     feature = "python",
     pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
@@ -223,7 +225,7 @@ pub struct Bar {
     pub volume: Quantity,
     /// The UNIX timestamp (nanoseconds) when the data event occurred.
     pub ts_event: UnixNanos,
-    /// The UNIX timestamp (nanoseconds) when the data object was initialized.
+    /// The UNIX timestamp (nanoseconds) when the struct was initialized.
     pub ts_init: UnixNanos,
 }
 
@@ -281,50 +283,7 @@ impl Bar {
         metadata.insert("ts_init".to_string(), "UInt64".to_string());
         metadata
     }
-
-    /// Create a new [`Bar`] extracted from the given [`PyAny`].
-    #[cfg(feature = "python")]
-    pub fn from_pyobject(obj: &PyAny) -> PyResult<Self> {
-        use nautilus_core::python::to_pyvalue_err;
-
-        let bar_type_obj: &PyAny = obj.getattr("bar_type")?.extract()?;
-        let bar_type_str = bar_type_obj.call_method0("__str__")?.extract()?;
-        let bar_type = BarType::from_str(bar_type_str)
-            .map_err(to_pyvalue_err)
-            .unwrap();
-
-        let open_py: &PyAny = obj.getattr("open")?;
-        let price_prec: u8 = open_py.getattr("precision")?.extract()?;
-        let open_raw: i64 = open_py.getattr("raw")?.extract()?;
-        let open = Price::from_raw(open_raw, price_prec).map_err(to_pyvalue_err)?;
-
-        let high_py: &PyAny = obj.getattr("high")?;
-        let high_raw: i64 = high_py.getattr("raw")?.extract()?;
-        let high = Price::from_raw(high_raw, price_prec).map_err(to_pyvalue_err)?;
-
-        let low_py: &PyAny = obj.getattr("low")?;
-        let low_raw: i64 = low_py.getattr("raw")?.extract()?;
-        let low = Price::from_raw(low_raw, price_prec).map_err(to_pyvalue_err)?;
-
-        let close_py: &PyAny = obj.getattr("close")?;
-        let close_raw: i64 = close_py.getattr("raw")?.extract()?;
-        let close = Price::from_raw(close_raw, price_prec).map_err(to_pyvalue_err)?;
-
-        let volume_py: &PyAny = obj.getattr("volume")?;
-        let volume_raw: u64 = volume_py.getattr("raw")?.extract()?;
-        let volume_prec: u8 = volume_py.getattr("precision")?.extract()?;
-        let volume = Quantity::from_raw(volume_raw, volume_prec).map_err(to_pyvalue_err)?;
-
-        let ts_event: UnixNanos = obj.getattr("ts_event")?.extract()?;
-        let ts_init: UnixNanos = obj.getattr("ts_init")?.extract()?;
-
-        Ok(Self::new(
-            bar_type, open, high, low, close, volume, ts_event, ts_init,
-        ))
-    }
 }
-
-impl Serializable for Bar {}
 
 impl Display for Bar {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -336,46 +295,11 @@ impl Display for Bar {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Stubs
-////////////////////////////////////////////////////////////////////////////////
-#[cfg(feature = "stubs")]
-pub mod stubs {
-    use rstest::fixture;
+impl Serializable for Bar {}
 
-    use crate::{
-        data::bar::{Bar, BarSpecification, BarType},
-        enums::{AggregationSource, BarAggregation, PriceType},
-        identifiers::{instrument_id::InstrumentId, symbol::Symbol, venue::Venue},
-        types::{price::Price, quantity::Quantity},
-    };
-
-    #[fixture]
-    pub fn stub_bar() -> Bar {
-        let instrument_id = InstrumentId {
-            symbol: Symbol::new("AUDUSD").unwrap(),
-            venue: Venue::new("SIM").unwrap(),
-        };
-        let bar_spec = BarSpecification {
-            step: 1,
-            aggregation: BarAggregation::Minute,
-            price_type: PriceType::Bid,
-        };
-        let bar_type = BarType {
-            instrument_id,
-            spec: bar_spec,
-            aggregation_source: AggregationSource::External,
-        };
-        Bar {
-            bar_type,
-            open: Price::from("1.00001"),
-            high: Price::from("1.00004"),
-            low: Price::from("1.00002"),
-            close: Price::from("1.00003"),
-            volume: Quantity::from("100000"),
-            ts_event: 0,
-            ts_init: 1,
-        }
+impl GetTsInit for Bar {
+    fn ts_init(&self) -> UnixNanos {
+        self.ts_init
     }
 }
 
@@ -386,7 +310,7 @@ pub mod stubs {
 mod tests {
     use rstest::rstest;
 
-    use super::{stubs::*, *};
+    use super::*;
     use crate::{
         enums::BarAggregation,
         identifiers::{symbol::Symbol, venue::Venue},
@@ -584,8 +508,8 @@ mod tests {
             low: Price::from("1.00002"),
             close: Price::from("1.00003"),
             volume: Quantity::from("100000"),
-            ts_event: 0,
-            ts_init: 0,
+            ts_event: UnixNanos::default(),
+            ts_init: UnixNanos::from(1),
         };
 
         let bar2 = Bar {
@@ -595,24 +519,24 @@ mod tests {
             low: Price::from("1.00002"),
             close: Price::from("1.00003"),
             volume: Quantity::from("100000"),
-            ts_event: 0,
-            ts_init: 0,
+            ts_event: UnixNanos::default(),
+            ts_init: UnixNanos::from(1),
         };
         assert_eq!(bar1, bar1);
         assert_ne!(bar1, bar2);
     }
 
     #[rstest]
-    fn test_json_serialization(stub_bar: Bar) {
-        let bar = stub_bar;
+    fn test_json_serialization() {
+        let bar = Bar::default();
         let serialized = bar.as_json_bytes().unwrap();
         let deserialized = Bar::from_json_bytes(serialized).unwrap();
         assert_eq!(deserialized, bar);
     }
 
     #[rstest]
-    fn test_msgpack_serialization(stub_bar: Bar) {
-        let bar = stub_bar;
+    fn test_msgpack_serialization() {
+        let bar = Bar::default();
         let serialized = bar.as_msgpack_bytes().unwrap();
         let deserialized = Bar::from_msgpack_bytes(serialized).unwrap();
         assert_eq!(deserialized, bar);

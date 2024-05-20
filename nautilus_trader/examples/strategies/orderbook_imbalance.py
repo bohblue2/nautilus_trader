@@ -45,7 +45,7 @@ class OrderBookImbalanceConfig(StrategyConfig, frozen=True):
     ----------
     instrument_id : InstrumentId
         The instrument ID for the strategy.
-    max_trade_size : str
+    max_trade_size : Decimal
         The max position size per trade (volume on the level can be less).
     trigger_min_size : PositiveFloat, default 100.0
         The minimum size on the larger side to trigger an order.
@@ -62,12 +62,6 @@ class OrderBookImbalanceConfig(StrategyConfig, frozen=True):
         If quote ticks should be used.
     subscribe_ticker : bool, default False
         If tickers should be subscribed to.
-    order_id_tag : str
-        The unique order ID tag for the strategy. Must be unique
-        amongst all running strategies for a particular trader ID.
-    oms_type : OmsType
-        The order management system type for the strategy. This will determine
-        how the `ExecutionEngine` handles position IDs (see docs).
 
     """
 
@@ -157,13 +151,13 @@ class OrderBookImbalance(Strategy):
         Check for trigger conditions.
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         # Fetch book from the cache being maintained by the `DataEngine`
         book = self.cache.order_book(self.instrument_id)
         if not book:
-            self.log.error("No book being maintained.")
+            self.log.error("No book being maintained")
             return
 
         if not book.spread():
@@ -172,7 +166,7 @@ class OrderBookImbalance(Strategy):
         bid_size: Quantity | None = book.best_bid_size()
         ask_size: Quantity | None = book.best_ask_size()
         if (bid_size is None or bid_size <= 0) or (ask_size is None or ask_size <= 0):
-            self.log.warning("No market yet.")
+            self.log.warning("No market yet")
             return
 
         smaller = min(bid_size, ask_size)
@@ -192,7 +186,7 @@ class OrderBookImbalance(Strategy):
             if len(self.cache.orders_inflight(strategy_id=self.id)) > 0:
                 self.log.info("Already have orders in flight - skipping.")
             elif seconds_since_last_trigger < self.min_seconds_between_triggers:
-                self.log.info("Time since last order < min_seconds_between_triggers - skipping.")
+                self.log.info("Time since last order < min_seconds_between_triggers - skipping")
             elif bid_size > ask_size:
                 order = self.order_factory.limit(
                     instrument_id=self.instrument.id,

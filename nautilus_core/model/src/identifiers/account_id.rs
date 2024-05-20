@@ -21,6 +21,8 @@ use std::{
 use nautilus_core::correctness::{check_string_contains, check_valid_string};
 use ustr::Ustr;
 
+use super::venue::Venue;
+
 /// Represents a valid account ID.
 ///
 /// Must be correctly formatted with two valid strings either side of a hyphen '-'.
@@ -34,39 +36,62 @@ use ustr::Ustr;
     feature = "python",
     pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
 )]
-pub struct AccountId {
-    /// The account ID value.
-    pub value: Ustr,
-}
+pub struct AccountId(Ustr);
 
 impl AccountId {
+    /// Creates a new `AccountId` instance from the given identifier value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is not a valid string, or does not contain a hyphen '-' separator.
     pub fn new(value: &str) -> anyhow::Result<Self> {
         check_valid_string(value, stringify!(value))?;
         check_string_contains(value, "-", stringify!(value))?;
 
-        Ok(Self {
-            value: Ustr::from(value),
-        })
+        Ok(Self(Ustr::from(value)))
     }
-}
 
-impl Default for AccountId {
-    fn default() -> Self {
-        Self {
-            value: Ustr::from("SIM-001"),
-        }
+    /// Sets the inner identifier value.
+    pub(crate) fn set_inner(&mut self, value: &str) {
+        self.0 = Ustr::from(value);
+    }
+
+    /// Returns the inner identifier value.
+    #[must_use]
+    pub fn inner(&self) -> Ustr {
+        self.0
+    }
+
+    /// Returns the inner identifier value as a string slice.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    /// Returns the account issuer for this identifier.
+    #[must_use]
+    pub fn get_issuer(&self) -> Venue {
+        // SAFETY: Account ID is guaranteed to have chars either side of a hyphen
+        Venue::from_str_unchecked(self.0.split('-').collect::<Vec<&str>>().first().unwrap())
+    }
+
+    /// Returns the account ID assigned by the issuer.
+    #[must_use]
+    pub fn get_issuers_id(&self) -> &str {
+        // SAFETY: Account ID is guaranteed to have chars either side of a hyphen
+        self.0.split('-').collect::<Vec<&str>>().last().unwrap()
     }
 }
 
 impl Debug for AccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.value)
+        write!(f, "{:?}", self.0)
     }
 }
 
 impl Display for AccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value)
+        write!(f, "{}", self.0)
     }
 }
 
@@ -110,6 +135,16 @@ mod tests {
 
     #[rstest]
     fn test_string_reprs(account_ib: AccountId) {
-        assert_eq!(account_ib.to_string(), "IB-1234567890");
+        assert_eq!(account_ib.as_str(), "IB-1234567890");
+    }
+
+    #[rstest]
+    fn test_get_issuer(account_ib: AccountId) {
+        assert_eq!(account_ib.get_issuer(), Venue::new("IB").unwrap());
+    }
+
+    #[rstest]
+    fn test_get_issuers_id(account_ib: AccountId) {
+        assert_eq!(account_ib.get_issuers_id(), "1234567890");
     }
 }

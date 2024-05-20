@@ -149,6 +149,7 @@ class BetfairExecutionClient(LiveExecutionClient):
         self._strategy_hashes: dict[str, str] = {}
         self._set_account_id(AccountId(f"{BETFAIR_VENUE}-001"))
         AccountFactory.register_calculated_account(BETFAIR_VENUE.value)
+        self._reconnect_in_progress = False
 
     @property
     def instrument_provider(self) -> BetfairInstrumentProvider:
@@ -159,7 +160,7 @@ class BetfairExecutionClient(LiveExecutionClient):
     async def _connect(self) -> None:
         self._log.info("Connecting to BetfairHttpClient...")
         await self._client.connect()
-        self._log.info("BetfairHttpClient login successful.", LogColor.GREEN)
+        self._log.info("BetfairHttpClient login successful", LogColor.GREEN)
 
         # Start scheduled account state updates
         self.create_task(self.account_state_updates())
@@ -174,21 +175,35 @@ class BetfairExecutionClient(LiveExecutionClient):
 
     async def _disconnect(self) -> None:
         # Close socket
-        self._log.info("Closing streaming socket...")
+        self._log.info("Closing streaming socket")
         await self.stream.disconnect()
 
         # Ensure client closed
-        self._log.info("Closing BetfairHttpClient...")
+        self._log.info("Closing BetfairHttpClient")
         await self._client.disconnect()
 
     # -- ERROR HANDLING ---------------------------------------------------------------------------
     async def on_api_exception(self, error: BetfairError) -> None:
         if "INVALID_SESSION_INFORMATION" in error.args[0]:
-            # Session is invalid, need to reconnect
-            self._log.warning("Invalid session error, reconnecting..")
-            await self._client.disconnect()
-            await self._connect()
-            self._log.info("Reconnected.")
+            if self._reconnect_in_progress:
+                self._log.info("Reconnect already in progress.")
+                return
+
+            # Avoid multiple reconnection attempts when multiple INVALID_SESSION_INFORMATION errors
+            # are received at "the same time" from the BF API. Simulaneous reconnection attempts
+            # will result in MAX_CONNECTION_LIMIT_EXCEEDED errors.
+            self._reconnect_in_progress = True
+
+            try:
+                # Session is invalid, need to reconnect
+                self._log.warning("Invalid session error, reconnecting..")
+                await self._disconnect()
+                await self._connect()
+                self._log.info("Reconnected.")
+            except Exception:
+                self._log.error("Reconnection failed.", exc_info=True)
+
+            self._reconnect_in_progress = False
 
     # -- ACCOUNT HANDLERS -------------------------------------------------------------------------
 
@@ -273,7 +288,7 @@ class BetfairExecutionClient(LiveExecutionClient):
             ts_init=self._clock.timestamp_ns(),
         )
 
-        self._log.debug(f"Received {report}.")
+        self._log.debug(f"Received {report}")
         return report
 
     async def generate_order_status_reports(
@@ -353,7 +368,7 @@ class BetfairExecutionClient(LiveExecutionClient):
         start: pd.Timestamp | None = None,
         end: pd.Timestamp | None = None,
     ) -> list[PositionStatusReport]:
-        self._log.warning("Cannot generate `PositionStatusReports`: not yet implemented.")
+        self._log.warning("Cannot generate `PositionStatusReports`: not yet implemented")
 
         return []
 
@@ -602,7 +617,9 @@ class BetfairExecutionClient(LiveExecutionClient):
         self._log.info("Loading venue_id mapping from cache")
         raw = self._cache.get("betfair_execution_client.venue_order_id_to_client_order_id") or b"{}"
         self._log.info(f"venue_id_mapping: {raw.decode()=}")
-        self.venue_order_id_to_client_order_id = msgspec.json.decode(raw)
+        self.venue_order_id_to_client_order_id = {
+            VenueOrderId(k): ClientOrderId(v) for k, v in msgspec.json.decode(raw).items()
+        }
 
     def set_venue_id_mapping(
         self,

@@ -13,6 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Defines common enumerations.
+
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
@@ -226,6 +228,7 @@ pub enum LogColor {
 }
 
 impl LogColor {
+    #[must_use]
     pub fn as_ansi(&self) -> &str {
         match *self {
             Self::Normal => "",
@@ -281,4 +284,37 @@ pub enum LogFormat {
     /// Underline log format. This ANSI escape code is used to underline the text in the log output.
     #[strum(serialize = "\x1b[4m")]
     Underline,
+}
+
+/// The serialization encoding.
+#[repr(C)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    FromRepr,
+    EnumIter,
+    EnumString,
+    Serialize,
+    Deserialize,
+)]
+#[strum(ascii_case_insensitive)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common.enums")
+)]
+pub enum SerializationEncoding {
+    /// The MessagePack encoding.
+    #[serde(rename = "msgpack")]
+    MsgPack = 0,
+    /// The JavaScript Object Notation (JSON) encoding.
+    #[serde(rename = "json")]
+    Json = 1,
 }

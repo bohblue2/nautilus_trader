@@ -15,21 +15,19 @@
 
 use std::str::FromStr;
 
-use nautilus_core::uuid::UUID4;
+use nautilus_core::{nanos::UnixNanos, uuid::UUID4};
 
 use super::{limit::LimitOrder, stop_market::StopMarketOrder};
 use crate::{
     enums::{LiquiditySide, OrderSide, TimeInForce, TriggerType},
     events::order::filled::OrderFilled,
     identifiers::{
-        account_id::AccountId,
         client_order_id::ClientOrderId,
         instrument_id::InstrumentId,
         position_id::PositionId,
         strategy_id::StrategyId,
         stubs::{strategy_id_ema_cross, trader_id},
         trade_id::TradeId,
-        venue_order_id::VenueOrderId,
     },
     instruments::Instrument,
     orders::{base::Order, market::MarketOrder},
@@ -50,19 +48,15 @@ impl TestOrderEventStubs {
         last_px: Option<Price>,
         last_qty: Option<Quantity>,
         commission: Option<Money>,
-        ts_filled_ns: Option<u64>,
+        ts_filled_ns: Option<UnixNanos>,
     ) -> OrderFilled {
         let trader_id = trader_id();
         let strategy_id = strategy_id.unwrap_or(order.strategy_id());
         let instrument_id = order.instrument_id();
-        let venue_order_id = order
-            .venue_order_id()
-            .unwrap_or(VenueOrderId::new("1").unwrap());
-        let account_id = order
-            .account_id()
-            .unwrap_or(AccountId::new("SIM-001").unwrap());
+        let venue_order_id = order.venue_order_id().unwrap_or_default();
+        let account_id = order.account_id().unwrap_or_default();
         let trade_id = trade_id.unwrap_or(
-            TradeId::new(order.client_order_id().value.replace('O', "E").as_str()).unwrap(),
+            TradeId::new(order.client_order_id().as_str().replace('O', "E").as_str()).unwrap(),
         );
         let liquidity_side = order.liquidity_side().unwrap_or(LiquiditySide::Maker);
         let event = UUID4::new();
@@ -87,8 +81,8 @@ impl TestOrderEventStubs {
             instrument.quote_currency(),
             liquidity_side,
             event,
-            ts_filled_ns.unwrap_or(0),
-            0,
+            ts_filled_ns.unwrap_or_default(),
+            UnixNanos::default(),
             false,
             Some(position_id),
             Some(commission),
@@ -110,8 +104,7 @@ impl TestOrderStubs {
     ) -> MarketOrder {
         let trader = trader_id();
         let strategy = strategy_id_ema_cross();
-        let client_order_id =
-            client_order_id.unwrap_or(ClientOrderId::from("O-20200814-102234-001-001-1"));
+        let client_order_id = client_order_id.unwrap_or_default();
         let time_in_force = time_in_force.unwrap_or(TimeInForce::Gtc);
         MarketOrder::new(
             trader,
@@ -122,7 +115,7 @@ impl TestOrderStubs {
             quantity,
             time_in_force,
             UUID4::new(),
-            12_321_312_321_312,
+            UnixNanos::default(),
             false,
             false,
             None,
@@ -148,8 +141,7 @@ impl TestOrderStubs {
     ) -> LimitOrder {
         let trader = trader_id();
         let strategy = strategy_id_ema_cross();
-        let client_order_id =
-            client_order_id.unwrap_or(ClientOrderId::from("O-19700101-0000-000-001-1"));
+        let client_order_id = client_order_id.unwrap_or_default();
         let time_in_force = time_in_force.unwrap_or(TimeInForce::Gtc);
         LimitOrder::new(
             trader,
@@ -176,7 +168,7 @@ impl TestOrderStubs {
             Some(client_order_id),
             None,
             UUID4::new(),
-            12_321_312_321_312,
+            UnixNanos::default(),
         )
         .unwrap()
     }
@@ -193,8 +185,7 @@ impl TestOrderStubs {
     ) -> StopMarketOrder {
         let trader = trader_id();
         let strategy = strategy_id_ema_cross();
-        let client_order_id =
-            client_order_id.unwrap_or(ClientOrderId::from("O-19700101-010000-001-001-1"));
+        let client_order_id = client_order_id.unwrap_or_default();
         let time_in_force = time_in_force.unwrap_or(TimeInForce::Gtc);
         StopMarketOrder::new(
             trader,
@@ -221,7 +212,7 @@ impl TestOrderStubs {
             None,
             None,
             UUID4::new(),
-            12_321_312_321_312,
+            UnixNanos::default(),
         )
         .unwrap()
     }

@@ -47,7 +47,7 @@ class SandboxLiveExecClientFactory(LiveExecClientFactory):
         loop : asyncio.AbstractEventLoop
             The event loop for the client.
         name : str
-            The client name.
+            The custom client ID.
         config : dict[str, object]
             The configuration for the client.
         portfolio : PortfolioFacade
@@ -70,8 +70,9 @@ class SandboxLiveExecClientFactory(LiveExecClientFactory):
             portfolio=portfolio,
             msgbus=msgbus,
             cache=cache,
-            venue=config.venue,
+            venue=name or config.venue,
             balance=config.balance,
             currency=config.currency,
+            bar_execution=config.bar_execution,
         )
         return exec_client

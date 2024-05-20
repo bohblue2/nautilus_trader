@@ -35,6 +35,12 @@ from nautilus_trader.trading.strategy import Strategy
 class SubscribeStrategyConfig(StrategyConfig, frozen=True):
     """
     Configuration for ``SubscribeStrategy`` instances.
+
+    Parameters
+    ----------
+    instrument_id : InstrumentId
+        The instrument ID for the strategy.
+
     """
 
     instrument_id: InstrumentId
@@ -106,7 +112,7 @@ class SubscribeStrategy(Strategy):
 
     def on_order_book_deltas(self, deltas: OrderBookDeltas) -> None:
         if not self.book:
-            self.log.error("No book being maintained.")
+            self.log.error("No book being maintained")
             return
 
         self.book.apply_deltas(deltas)

@@ -55,8 +55,8 @@ class EMACrossBracketAlgoConfig(StrategyConfig, frozen=True):
         The instrument ID for the strategy.
     bar_type : BarType
         The bar type for the strategy.
-    trade_size : str
-        The position size per trade (interpreted as Decimal).
+    trade_size : Decimal
+        The position size per trade.
     atr_period : PositiveInt, default 20
         The period for the ATR indicator.
     fast_ema_period : PositiveInt, default 10
@@ -82,14 +82,6 @@ class EMACrossBracketAlgoConfig(StrategyConfig, frozen=True):
         The execution algorithm params for take-profit (TP) orders.
     close_positions_on_stop : bool, default True
         If all open positions should be closed on strategy stop.
-    order_id_tag : str
-        The unique order ID tag for the strategy. Must be unique
-        amongst all running strategies for a particular trader ID.
-    oms_type : OmsType
-        The order management system type for the strategy. This will determine
-        how the `ExecutionEngine` handles position IDs (see docs).
-    manage_gtd_expiry : bool, default True
-        If all order GTD time in force expirations should be managed by the strategy.
 
     """
 
@@ -213,7 +205,7 @@ class EMACrossBracketAlgo(Strategy):
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
-                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]...",
+                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]",
                 color=LogColor.BLUE,
             )
             return  # Wait for indicators to warm up...
@@ -246,7 +238,7 @@ class EMACrossBracketAlgo(Strategy):
         Users bracket buy method (example).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         tick_size: Price = self.instrument.price_increment
@@ -278,7 +270,7 @@ class EMACrossBracketAlgo(Strategy):
         Users bracket sell method (example).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         tick_size: Price = self.instrument.price_increment

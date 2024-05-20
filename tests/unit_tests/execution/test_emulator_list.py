@@ -21,6 +21,7 @@ import pytest
 from nautilus_trader.backtest.exchange import SimulatedExchange
 from nautilus_trader.backtest.execution_client import BacktestExecClient
 from nautilus_trader.backtest.models import FillModel
+from nautilus_trader.backtest.models import MakerTakerFeeModel
 from nautilus_trader.cache.cache import Cache
 from nautilus_trader.common.component import MessageBus
 from nautilus_trader.common.component import TestClock
@@ -46,6 +47,7 @@ from nautilus_trader.model.identifiers import AccountId
 from nautilus_trader.model.identifiers import OrderListId
 from nautilus_trader.model.identifiers import PositionId
 from nautilus_trader.model.identifiers import Venue
+from nautilus_trader.model.identifiers import VenueOrderId
 from nautilus_trader.model.objects import Money
 from nautilus_trader.model.objects import Quantity
 from nautilus_trader.model.orders.list import OrderList
@@ -130,6 +132,7 @@ class TestOrderEmulatorWithOrderLists:
             instruments=[ETHUSDT_PERP_BINANCE],
             modules=[],
             fill_model=FillModel(),
+            fee_model=MakerTakerFeeModel(),
             portfolio=self.portfolio,
             msgbus=self.msgbus,
             cache=self.cache,
@@ -906,6 +909,7 @@ class TestOrderEmulatorWithOrderLists:
                 bracket.orders[2],
                 instrument=ETHUSDT_PERP_BINANCE,
                 account_id=self.account_id,
+                venue_order_id=VenueOrderId("2"),
             ),
         )
 
@@ -975,6 +979,7 @@ class TestOrderEmulatorWithOrderLists:
                 bracket.orders[1],
                 instrument=ETHUSDT_PERP_BINANCE,
                 account_id=self.account_id,
+                venue_order_id=VenueOrderId("2"),
                 last_qty=Quantity.from_int(5),
             ),
         )
@@ -1049,6 +1054,7 @@ class TestOrderEmulatorWithOrderLists:
                 bracket.orders[1],
                 instrument=ETHUSDT_PERP_BINANCE,
                 account_id=self.account_id,
+                venue_order_id=VenueOrderId("2"),
                 last_qty=Quantity.from_int(5),
             ),
         )

@@ -13,7 +13,9 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-use std::any::Any;
+//! Defines instrument definitions for the trading domain models.
+
+pub mod any;
 pub mod crypto_future;
 pub mod crypto_perpetual;
 pub mod currency_pair;
@@ -27,34 +29,20 @@ pub mod synthetic;
 #[cfg(feature = "stubs")]
 pub mod stubs;
 
-use nautilus_core::time::UnixNanos;
+use nautilus_core::nanos::UnixNanos;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use ustr::Ustr;
 
-use self::{
-    crypto_future::CryptoFuture, crypto_perpetual::CryptoPerpetual, currency_pair::CurrencyPair,
-    equity::Equity, futures_contract::FuturesContract, futures_spread::FuturesSpread,
-    options_contract::OptionsContract, options_spread::OptionsSpread,
-};
+use self::any::InstrumentAny;
 use crate::{
-    enums::{AssetClass, InstrumentClass},
+    enums::{AssetClass, InstrumentClass, OptionKind},
     identifiers::{instrument_id::InstrumentId, symbol::Symbol, venue::Venue},
     types::{currency::Currency, money::Money, price::Price, quantity::Quantity},
 };
 
-#[derive(Debug)]
-pub enum InstrumentType {
-    CryptoFuture(CryptoFuture),
-    CryptoPerpetual(CryptoPerpetual),
-    CurrencyPair(CurrencyPair),
-    Equity(Equity),
-    FuturesContract(FuturesContract),
-    FuturesSpread(FuturesSpread),
-    OptionsContract(OptionsContract),
-    OptionsSpread(OptionsSpread),
-}
-
-pub trait Instrument: Any + 'static + Send {
+pub trait Instrument: 'static + Send {
+    fn into_any(self) -> InstrumentAny;
     fn id(&self) -> InstrumentId;
     fn symbol(&self) -> Symbol {
         self.id().symbol
@@ -65,9 +53,16 @@ pub trait Instrument: Any + 'static + Send {
     fn raw_symbol(&self) -> Symbol;
     fn asset_class(&self) -> AssetClass;
     fn instrument_class(&self) -> InstrumentClass;
+    fn underlying(&self) -> Option<Ustr>;
     fn base_currency(&self) -> Option<Currency>;
     fn quote_currency(&self) -> Currency;
     fn settlement_currency(&self) -> Currency;
+    fn isin(&self) -> Option<Ustr>;
+    fn option_kind(&self) -> Option<OptionKind>;
+    fn exchange(&self) -> Option<Ustr>;
+    fn strike_price(&self) -> Option<Price>;
+    fn activation_ns(&self) -> Option<UnixNanos>;
+    fn expiration_ns(&self) -> Option<UnixNanos>;
     fn is_inverse(&self) -> bool;
     fn price_precision(&self) -> u8;
     fn size_precision(&self) -> u8;
@@ -77,6 +72,8 @@ pub trait Instrument: Any + 'static + Send {
     fn lot_size(&self) -> Option<Quantity>;
     fn max_quantity(&self) -> Option<Quantity>;
     fn min_quantity(&self) -> Option<Quantity>;
+    fn max_notional(&self) -> Option<Money>;
+    fn min_notional(&self) -> Option<Money>;
     fn max_price(&self) -> Option<Price>;
     fn min_price(&self) -> Option<Price>;
     fn margin_init(&self) -> Decimal {
@@ -97,12 +94,12 @@ pub trait Instrument: Any + 'static + Send {
     fn ts_event(&self) -> UnixNanos;
     fn ts_init(&self) -> UnixNanos;
 
-    /// Creates a new price from the given `value` with the correct price precision for the instrument.
+    /// Creates a new `Price` from the given `value` with the correct price precision for the instrument.
     fn make_price(&self, value: f64) -> anyhow::Result<Price> {
         Price::new(value, self.price_precision())
     }
 
-    /// Creates a new quantity from the given `value` with the correct size precision for the instrument.
+    /// Creates a new `Quantity` from the given `value` with the correct size precision for the instrument.
     fn make_qty(&self, value: f64) -> anyhow::Result<Quantity> {
         Quantity::new(value, self.size_precision())
     }
@@ -145,6 +142,4 @@ pub trait Instrument: Any + 'static + Send {
         let value = quantity.as_f64() * (1.0 / last_px.as_f64());
         Quantity::new(value, self.size_precision()).unwrap() // TODO: Handle error properly
     }
-
-    fn as_any(&self) -> &dyn Any;
 }

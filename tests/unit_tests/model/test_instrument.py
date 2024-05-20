@@ -175,7 +175,7 @@ class TestInstrument:
             "size_increment": "1",
             "max_quantity": None,
             "min_quantity": None,
-            "max_notional": "10_000_000.00 USD",
+            "max_notional": "10000000.00 USD",
             "min_notional": "1.00 USD",
             "max_price": "1000000.0",
             "min_price": "0.5",
@@ -201,6 +201,7 @@ class TestInstrument:
             "underlying": "BTC",
             "quote_currency": "USDT",
             "settlement_currency": "USDT",
+            "is_inverse": False,
             "activation_ns": 1640390400000000000,
             "expiration_ns": 1648166400000000000,
             "price_precision": 2,
@@ -248,6 +249,7 @@ class TestInstrument:
             "taker_fee": "0",
             "ts_event": 0,
             "ts_init": 0,
+            "info": None,
         }
 
     def test_future_instrument_to_dict(self):

@@ -13,14 +13,14 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Common test related helper functions.
+
 use std::{
     thread,
     time::{Duration, Instant},
 };
 
 /// Repeatedly evaluates a condition with a delay until it becomes true or a timeout occurs.
-///
-/// # Arguments
 ///
 /// * `condition` - A closure that represents the condition to be met. This closure should return `true`
 ///                 when the condition is met and `false` otherwise.

@@ -19,7 +19,6 @@ use std::{
     ops::Deref,
 };
 
-use nautilus_core::time::UnixNanos;
 use pyo3::{prelude::*, pyclass::CompareOp, types::PyCapsule};
 
 use super::data_to_pycapsule;
@@ -54,12 +53,12 @@ impl OrderBookDeltas {
         h.finish() as isize
     }
 
-    fn __str__(&self) -> String {
-        self.to_string()
-    }
-
     fn __repr__(&self) -> String {
         format!("{self:?}")
+    }
+
+    fn __str__(&self) -> String {
+        self.to_string()
     }
 
     #[getter]
@@ -89,14 +88,14 @@ impl OrderBookDeltas {
 
     #[getter]
     #[pyo3(name = "ts_event")]
-    fn py_ts_event(&self) -> UnixNanos {
-        self.ts_event
+    fn py_ts_event(&self) -> u64 {
+        self.ts_event.as_u64()
     }
 
     #[getter]
     #[pyo3(name = "ts_init")]
-    fn py_ts_init(&self) -> UnixNanos {
-        self.ts_init
+    fn py_ts_init(&self) -> u64 {
+        self.ts_init.as_u64()
     }
 
     #[staticmethod]

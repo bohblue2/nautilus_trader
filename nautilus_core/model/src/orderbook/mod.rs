@@ -13,9 +13,12 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! Provides a generic order book which can handle L1/L2/L3 data.
+
+pub mod aggregation;
+pub mod analysis;
 pub mod book;
-pub mod book_mbo;
-pub mod book_mbp;
 pub mod display;
+pub mod error;
 pub mod ladder;
 pub mod level;

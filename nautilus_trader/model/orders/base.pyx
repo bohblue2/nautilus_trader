@@ -56,14 +56,14 @@ from nautilus_trader.model.objects cimport Money
 from nautilus_trader.model.objects cimport Quantity
 
 
-VALID_STOP_ORDER_TYPES = {
+STOP_ORDER_TYPES = {
     OrderType.STOP_MARKET,
     OrderType.STOP_LIMIT,
     OrderType.MARKET_IF_TOUCHED,
     OrderType.LIMIT_IF_TOUCHED,
 }
 
-VALID_LIMIT_ORDER_TYPES = {
+LIMIT_ORDER_TYPES = {
     OrderType.LIMIT,
     OrderType.STOP_LIMIT,
     OrderType.LIMIT_IF_TOUCHED,
@@ -917,7 +917,7 @@ cdef class Order:
         list[Money]
 
         """
-        return list(self._commissions.values())
+        return sorted(self._commissions.values())
 
     cpdef void apply(self, OrderEvent event):
         """
@@ -1061,7 +1061,7 @@ cdef class Order:
         cdef int64_t raw_leaves_qty = self.quantity._mem.raw - raw_filled_qty
         if raw_leaves_qty < 0:
             raise ValueError(
-                f"invalid order.leaves_qty: was {<uint64_t>raw_leaves_qty / 1e9}, "
+                f"invalid order.leaves_qty: was {raw_leaves_qty / 1e9}, "
                 f"order.quantity={self.quantity}, "
                 f"order.filled_qty={self.filled_qty}, "
                 f"fill.last_qty={fill.last_qty}, "

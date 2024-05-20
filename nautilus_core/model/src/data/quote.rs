@@ -13,6 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! A `QuoteTick` data type representing a top-of-book quote state.
+
 use std::{
     cmp,
     collections::HashMap,
@@ -20,19 +22,21 @@ use std::{
     hash::Hash,
 };
 
+use derive_builder::Builder;
 use indexmap::IndexMap;
-use nautilus_core::{correctness::check_equal_u8, serialization::Serializable, time::UnixNanos};
+use nautilus_core::{correctness::check_equal_u8, nanos::UnixNanos, serialization::Serializable};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     enums::PriceType,
     identifiers::instrument_id::InstrumentId,
+    polymorphism::GetTsInit,
     types::{fixed::FIXED_PRECISION, price::Price, quantity::Quantity},
 };
 
-/// Represents a single quote tick in a financial market.
+/// Represents a single quote tick in a market.
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Builder)]
 #[serde(tag = "type")]
 #[cfg_attr(
     feature = "python",
@@ -50,9 +54,9 @@ pub struct QuoteTick {
     pub bid_size: Quantity,
     /// The top of book ask size.
     pub ask_size: Quantity,
-    /// The UNIX timestamp (nanoseconds) when the tick event occurred.
+    /// The UNIX timestamp (nanoseconds) when the quote event occurred.
     pub ts_event: UnixNanos,
-    /// The UNIX timestamp (nanoseconds) when the data object was initialized.
+    /// The UNIX timestamp (nanoseconds) when the struct was initialized.
     pub ts_init: UnixNanos,
 }
 
@@ -162,30 +166,9 @@ impl Display for QuoteTick {
 
 impl Serializable for QuoteTick {}
 
-////////////////////////////////////////////////////////////////////////////////
-// Stubs
-////////////////////////////////////////////////////////////////////////////////
-#[cfg(feature = "stubs")]
-pub mod stubs {
-    use rstest::fixture;
-
-    use crate::{
-        data::quote::QuoteTick,
-        identifiers::instrument_id::InstrumentId,
-        types::{price::Price, quantity::Quantity},
-    };
-
-    #[fixture]
-    pub fn quote_tick_ethusdt_binance() -> QuoteTick {
-        QuoteTick {
-            instrument_id: InstrumentId::from("ETHUSDT-PERP.BINANCE"),
-            bid_price: Price::from("10000.0000"),
-            ask_price: Price::from("10001.0000"),
-            bid_size: Quantity::from("1.00000000"),
-            ask_size: Quantity::from("1.00000000"),
-            ts_event: 0,
-            ts_init: 1,
-        }
+impl GetTsInit for QuoteTick {
+    fn ts_init(&self) -> UnixNanos {
+        self.ts_init
     }
 }
 
@@ -198,8 +181,10 @@ mod tests {
     use pyo3::{IntoPy, Python};
     use rstest::rstest;
 
-    use super::stubs::*;
-    use crate::{data::quote::QuoteTick, enums::PriceType};
+    use crate::{
+        data::{quote::QuoteTick, stubs::quote_tick_ethusdt_binance},
+        enums::PriceType,
+    };
 
     #[rstest]
     fn test_to_string(quote_tick_ethusdt_binance: QuoteTick) {

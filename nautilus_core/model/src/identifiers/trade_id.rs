@@ -45,6 +45,11 @@ pub struct TradeId {
 }
 
 impl TradeId {
+    /// Creates a new `TradeId` instance from the given identifier value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is not a valid string, or value length is greater than 36.
     pub fn new(value: &str) -> anyhow::Result<Self> {
         let cstr = CString::new(value).expect("`CString` conversion failed");
         Self::from_cstr(cstr)
@@ -66,12 +71,6 @@ impl TradeId {
         // SAFETY: Unwrap safe as we always store valid C strings
         // We use until nul because the values array may be padded with nul bytes
         CStr::from_bytes_until_nul(&self.value).unwrap()
-    }
-}
-
-impl Default for TradeId {
-    fn default() -> Self {
-        Self::from("1")
     }
 }
 

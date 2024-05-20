@@ -13,6 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! The logging framework for Nautilus systems.
+
 use std::{
     collections::HashMap,
     env,
@@ -23,6 +25,7 @@ use std::{
 use log::LevelFilter;
 use nautilus_core::{time::get_atomic_clock_static, uuid::UUID4};
 use nautilus_model::identifiers::trader_id::TraderId;
+use tracing::error;
 use tracing_subscriber::EnvFilter;
 use ustr::Ustr;
 
@@ -44,13 +47,13 @@ static LOGGING_COLORED: AtomicBool = AtomicBool::new(true);
 /// Returns whether the core logger is enabled.
 #[no_mangle]
 pub extern "C" fn logging_is_initialized() -> u8 {
-    LOGGING_INITIALIZED.load(Ordering::Relaxed) as u8
+    u8::from(LOGGING_INITIALIZED.load(Ordering::Relaxed))
 }
 
 /// Sets the logging system to bypass mode.
 #[no_mangle]
 pub extern "C" fn logging_set_bypass() {
-    LOGGING_BYPASSED.store(true, Ordering::Relaxed)
+    LOGGING_BYPASSED.store(true, Ordering::Relaxed);
 }
 
 /// Shuts down the logging system.
@@ -62,7 +65,7 @@ pub extern "C" fn logging_shutdown() {
 /// Returns whether the core logger is using ANSI colors.
 #[no_mangle]
 pub extern "C" fn logging_is_colored() -> u8 {
-    LOGGING_COLORED.load(Ordering::Relaxed) as u8
+    u8::from(LOGGING_COLORED.load(Ordering::Relaxed))
 }
 
 /// Sets the global logging clock to real-time mode.
@@ -81,7 +84,7 @@ pub extern "C" fn logging_clock_set_static_mode() {
 #[no_mangle]
 pub extern "C" fn logging_clock_set_static_time(time_ns: u64) {
     let clock = get_atomic_clock_static();
-    clock.set_time(time_ns);
+    clock.set_time(time_ns.into());
 }
 
 ///
@@ -95,7 +98,7 @@ pub fn init_tracing() {
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::new(v.clone()))
             .try_init()
-            .unwrap_or_else(|e| eprintln!("Cannot set tracing subscriber because of error: {e}"));
+            .unwrap_or_else(|e| error!("Cannot set tracing subscriber because of error: {e}"));
         println!("Initialized tracing logs with RUST_LOG={v}");
     }
 }
@@ -122,6 +125,7 @@ pub fn init_logging(
     Logger::init_with_config(trader_id, instance_id, config, file_config)
 }
 
+#[must_use]
 pub fn map_log_level_to_filter(log_level: LogLevel) -> LevelFilter {
     match log_level {
         LogLevel::Off => LevelFilter::Off,
@@ -132,15 +136,17 @@ pub fn map_log_level_to_filter(log_level: LogLevel) -> LevelFilter {
     }
 }
 
+#[must_use]
 pub fn parse_level_filter_str(s: &str) -> LevelFilter {
     let mut log_level_str = s.to_string().to_uppercase();
     if log_level_str == "WARNING" {
-        log_level_str = "WARN".to_string()
+        log_level_str = "WARN".to_string();
     }
     LevelFilter::from_str(&log_level_str)
         .unwrap_or_else(|_| panic!("Invalid `LevelFilter` string, was {log_level_str}"))
 }
 
+#[must_use]
 pub fn parse_component_levels(
     original_map: Option<HashMap<String, serde_json::Value>>,
 ) -> HashMap<Ustr, LevelFilter> {

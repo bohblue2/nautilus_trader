@@ -65,8 +65,8 @@ class EMACrossTrailingStopConfig(StrategyConfig, frozen=True):
         The trailing offset type (interpreted as `TrailingOffsetType`).
     trigger_type : str
         The trailing stop trigger type (interpreted as `TriggerType`).
-    trade_size : str
-        The position size per trade (interpreted as Decimal).
+    trade_size : Decimal
+        The position size per trade.
     fast_ema_period : PositiveInt, default 10
         The fast EMA period.
     slow_ema_period : PositiveInt, default 20
@@ -74,12 +74,6 @@ class EMACrossTrailingStopConfig(StrategyConfig, frozen=True):
     emulation_trigger : str, default 'NO_TRIGGER'
         The emulation trigger for submitting emulated orders.
         If 'NONE' then orders will not be emulated.
-    order_id_tag : str
-        The unique order ID tag for the strategy. Must be unique
-        amongst all running strategies for a particular trader ID.
-    oms_type : OmsType
-        The order management system type for the strategy. This will determine
-        how the `ExecutionEngine` handles position IDs (see docs).
 
     """
 
@@ -254,7 +248,7 @@ class EMACrossTrailingStop(Strategy):
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
-                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]...",
+                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]",
                 color=LogColor.BLUE,
             )
             return  # Wait for indicators to warm up...
@@ -272,7 +266,7 @@ class EMACrossTrailingStop(Strategy):
         Users simple buy entry method (example).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         order: MarketOrder = self.order_factory.market(
@@ -289,7 +283,7 @@ class EMACrossTrailingStop(Strategy):
         Users simple sell entry method (example).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         order: MarketOrder = self.order_factory.market(
@@ -306,7 +300,7 @@ class EMACrossTrailingStop(Strategy):
         Users simple trailing stop BUY for (``SHORT`` positions).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         offset = self.atr.value * self.trailing_atr_multiple
@@ -329,7 +323,7 @@ class EMACrossTrailingStop(Strategy):
         Users simple trailing stop SELL for (LONG positions).
         """
         if not self.instrument:
-            self.log.error("No instrument loaded.")
+            self.log.error("No instrument loaded")
             return
 
         offset = self.atr.value * self.trailing_atr_multiple

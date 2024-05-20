@@ -14,34 +14,24 @@
 // -------------------------------------------------------------------------------------------------
 
 ////////////////////////////////////////////////////////////////////////////////
-// Stubs
-////////////////////////////////////////////////////////////////////////////////
-#[cfg(test)]
-pub mod stubs {
-    use rstest::fixture;
-
-    use crate::clock::TestClock;
-
-    #[fixture]
-    pub fn test_clock() -> TestClock {
-        TestClock::new()
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Tests
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
+    use nautilus_core::nanos::UnixNanos;
     use pyo3::{prelude::*, types::PyList};
     use rstest::*;
-    use stubs::*;
 
     use super::*;
     use crate::{
         clock::{Clock, TestClock},
         handlers::EventHandler,
     };
+
+    #[fixture]
+    pub fn test_clock() -> TestClock {
+        TestClock::new()
+    }
 
     #[rstest]
     fn test_set_timer_ns_py(mut test_clock: TestClock) {
@@ -54,7 +44,9 @@ mod tests {
             test_clock.register_default_handler(handler);
 
             let timer_name = "TEST_TIME1";
-            test_clock.set_timer_ns(timer_name, 10, 0, None, None);
+            test_clock
+                .set_timer_ns(timer_name, 10, 0.into(), None, None)
+                .unwrap();
 
             assert_eq!(test_clock.timer_names(), [timer_name]);
             assert_eq!(test_clock.timer_count(), 1);
@@ -72,7 +64,9 @@ mod tests {
             test_clock.register_default_handler(handler);
 
             let timer_name = "TEST_TIME1";
-            test_clock.set_timer_ns(timer_name, 10, 0, None, None);
+            test_clock
+                .set_timer_ns(timer_name, 10, 0.into(), None, None)
+                .unwrap();
             test_clock.cancel_timer(timer_name);
 
             assert!(test_clock.timer_names().is_empty());
@@ -91,7 +85,9 @@ mod tests {
             test_clock.register_default_handler(handler);
 
             let timer_name = "TEST_TIME1";
-            test_clock.set_timer_ns(timer_name, 10, 0, None, None);
+            test_clock
+                .set_timer_ns(timer_name, 10, 0.into(), None, None)
+                .unwrap();
             test_clock.cancel_timers();
 
             assert!(test_clock.timer_names().is_empty());
@@ -110,8 +106,10 @@ mod tests {
             test_clock.register_default_handler(handler);
 
             let timer_name = "TEST_TIME1";
-            test_clock.set_timer_ns(timer_name, 1, 1, Some(3), None);
-            test_clock.advance_time(2, true);
+            test_clock
+                .set_timer_ns(timer_name, 1, 1.into(), Some(UnixNanos::from(3)), None)
+                .unwrap();
+            test_clock.advance_time(2.into(), true);
 
             assert_eq!(test_clock.timer_names(), [timer_name]);
             assert_eq!(test_clock.timer_count(), 1);
@@ -128,8 +126,10 @@ mod tests {
             let handler = EventHandler::new(py_append);
             test_clock.register_default_handler(handler);
 
-            test_clock.set_timer_ns("TEST_TIME1", 2, 0, Some(3), None);
-            test_clock.advance_time(3, true);
+            test_clock
+                .set_timer_ns("TEST_TIME1", 2, 0.into(), Some(UnixNanos::from(3)), None)
+                .unwrap();
+            test_clock.advance_time(3.into(), true);
 
             assert_eq!(test_clock.timer_names().len(), 1);
             assert_eq!(test_clock.timer_count(), 1);
@@ -147,8 +147,10 @@ mod tests {
             let handler = EventHandler::new(py_append);
             test_clock.register_default_handler(handler);
 
-            test_clock.set_timer_ns("TEST_TIME1", 2, 0, Some(3), None);
-            test_clock.advance_time(3, false);
+            test_clock
+                .set_timer_ns("TEST_TIME1", 2, 0.into(), Some(UnixNanos::from(3)), None)
+                .unwrap();
+            test_clock.advance_time(3.into(), false);
 
             assert_eq!(test_clock.timer_names().len(), 1);
             assert_eq!(test_clock.timer_count(), 1);

@@ -21,6 +21,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use log::LevelFilter;
+use tracing::error;
 
 use crate::logging::logger::LogLine;
 
@@ -41,6 +42,7 @@ pub struct StdoutWriter {
 }
 
 impl StdoutWriter {
+    #[must_use]
     pub fn new(level: LevelFilter, is_colored: bool) -> Self {
         Self {
             buf: BufWriter::new(io::stdout()),
@@ -78,6 +80,7 @@ pub struct StderrWriter {
 }
 
 impl StderrWriter {
+    #[must_use]
     pub fn new(is_colored: bool) -> Self {
         Self {
             buf: BufWriter::new(io::stderr()),
@@ -118,6 +121,7 @@ pub struct FileWriterConfig {
 }
 
 impl FileWriterConfig {
+    #[must_use]
     pub fn new(
         directory: Option<String>,
         file_name: Option<String>,
@@ -154,7 +158,7 @@ impl FileWriter {
             Some(ref format) if format == "json" => true,
             None => false,
             Some(ref unrecognized) => {
-                eprintln!(
+                error!(
                     "Unrecognized log file format: {unrecognized}. Using plain text format as default."
                 );
                 false
@@ -179,7 +183,7 @@ impl FileWriter {
                 level: fileout_level,
             }),
             Err(e) => {
-                eprintln!("Error creating log file: {}", e);
+                error!("Error creating log file: {}", e);
                 None
             }
         }
@@ -212,6 +216,7 @@ impl FileWriter {
         file_path
     }
 
+    #[must_use]
     pub fn should_rotate_file(&self) -> bool {
         let current_date_utc = Utc::now().date_naive();
         let metadata = self
@@ -250,20 +255,20 @@ impl LogWriter for FileWriter {
                     self.buf = BufWriter::new(file);
                     self.path = file_path;
                 }
-                Err(e) => eprintln!("Error creating log file: {}", e),
+                Err(e) => error!("Error creating log file: {}", e),
             }
         }
 
         match self.buf.write_all(line.as_bytes()) {
             Ok(()) => {}
-            Err(e) => eprintln!("Error writing to file: {e:?}"),
+            Err(e) => error!("Error writing to file: {e:?}"),
         }
     }
 
     fn flush(&mut self) {
         match self.buf.flush() {
             Ok(()) => {}
-            Err(e) => eprintln!("Error flushing file: {e:?}"),
+            Err(e) => error!("Error flushing file: {e:?}"),
         }
     }
 

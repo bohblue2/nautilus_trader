@@ -13,6 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
+//! An `OrderBookDelta` data type intended to carry book state information.
+
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
@@ -20,11 +22,15 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use nautilus_core::{serialization::Serializable, time::UnixNanos};
+use nautilus_core::{nanos::UnixNanos, serialization::Serializable};
 use serde::{Deserialize, Serialize};
 
 use super::order::{BookOrder, NULL_ORDER};
-use crate::{enums::BookAction, identifiers::instrument_id::InstrumentId};
+use crate::{
+    enums::{BookAction, RecordFlag},
+    identifiers::instrument_id::InstrumentId,
+    polymorphism::GetTsInit,
+};
 
 /// Represents a single change/delta in an order book.
 #[repr(C)]
@@ -42,13 +48,13 @@ pub struct OrderBookDelta {
     pub action: BookAction,
     /// The order to apply.
     pub order: BookOrder,
-    /// A combination of packet end with matching engine status.
+    /// The record flags bit field, indicating event end and data information.
     pub flags: u8,
     /// The message sequence number assigned at the venue.
     pub sequence: u64,
-    /// The UNIX timestamp (nanoseconds) when the data event occurred.
+    /// The UNIX timestamp (nanoseconds) when the book event occurred.
     pub ts_event: UnixNanos,
-    /// The UNIX timestamp (nanoseconds) when the data object was initialized.
+    /// The UNIX timestamp (nanoseconds) when the struct was initialized.
     pub ts_init: UnixNanos,
 }
 
@@ -86,7 +92,7 @@ impl OrderBookDelta {
             instrument_id,
             action: BookAction::Clear,
             order: NULL_ORDER,
-            flags: 32, // TODO: Flags constants
+            flags: RecordFlag::F_SNAPSHOT as u8,
             sequence,
             ts_event,
             ts_init,
@@ -142,43 +148,9 @@ impl Display for OrderBookDelta {
 
 impl Serializable for OrderBookDelta {}
 
-////////////////////////////////////////////////////////////////////////////////
-// Stubs
-////////////////////////////////////////////////////////////////////////////////
-#[cfg(feature = "stubs")]
-pub mod stubs {
-    use rstest::fixture;
-
-    use super::{BookAction, BookOrder, OrderBookDelta};
-    use crate::{
-        enums::OrderSide,
-        identifiers::instrument_id::InstrumentId,
-        types::{price::Price, quantity::Quantity},
-    };
-
-    #[fixture]
-    pub fn stub_delta() -> OrderBookDelta {
-        let instrument_id = InstrumentId::from("AAPL.XNAS");
-        let action = BookAction::Add;
-        let price = Price::from("100.00");
-        let size = Quantity::from("10");
-        let side = OrderSide::Buy;
-        let order_id = 123_456;
-        let flags = 0;
-        let sequence = 1;
-        let ts_event = 1;
-        let ts_init = 2;
-
-        let order = BookOrder::new(side, price, size, order_id);
-        OrderBookDelta::new(
-            instrument_id,
-            action,
-            order,
-            flags,
-            sequence,
-            ts_event,
-            ts_init,
-        )
+impl GetTsInit for OrderBookDelta {
+    fn ts_init(&self) -> UnixNanos {
+        self.ts_init
     }
 }
 
@@ -218,8 +190,8 @@ mod tests {
             order,
             flags,
             sequence,
-            ts_event,
-            ts_init,
+            ts_event.into(),
+            ts_init.into(),
         );
 
         assert_eq!(delta.instrument_id, instrument_id);
@@ -241,7 +213,7 @@ mod tests {
         let ts_event = 2;
         let ts_init = 3;
 
-        let delta = OrderBookDelta::clear(instrument_id, sequence, ts_event, ts_init);
+        let delta = OrderBookDelta::clear(instrument_id, sequence, ts_event.into(), ts_init.into());
 
         assert_eq!(delta.instrument_id, instrument_id);
         assert_eq!(delta.action, BookAction::Clear);
@@ -260,7 +232,7 @@ mod tests {
         let delta = stub_delta;
         assert_eq!(
             format!("{delta}"),
-            "AAPL.XNAS,ADD,100.00,10,BUY,123456,0,1,1,2".to_string()
+            "AAPL.XNAS,ADD,BUY,100.00,10,123456,0,1,1,2".to_string()
         );
     }
 
